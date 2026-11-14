@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Survive the Sol: Storm Royale</title>
+  <meta name="description" content="A kid-friendly 3D survival game: drop onto the Moon or Mars, collect supplies and reach shelter before a REAL NASA solar storm hits. No weapons, no violence.">
+  <meta name="theme-color" content="#0b1026">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Three.js (3D library) loaded from a CDN as an ES module. No build step needed. -->
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+  </script>
+  <!-- To play locally: run "python -m http.server 8000" in this folder, then open http://localhost:8000
+       (Double-clicking index.html will NOT work, because the game loads JSON files with fetch().) -->
+</head>
+<body>
+  <!-- The 3D world is drawn into this canvas -->
+  <canvas id="game" aria-label="3D game view"></canvas>
+
+  <!-- ================= HUD (heads-up display) ================= -->
+  <div id="hud" class="hud" hidden>
+    <!-- Core mission resources (the ONLY 3 core bars) + stamina -->
+    <section class="bars panel" aria-label="Mission resources">
+      <div class="bar" data-bar="power"><span class="bar-icon" data-icon="power"></span><span class="bar-name">Power</span><b class="bar-num">0</b>
+        <div class="bar-track"><i></i></div></div>
+      <div class="bar" data-bar="life"><span class="bar-icon" data-icon="life"></span><span class="bar-name">Life Support</span><b class="bar-num">0</b>
+        <div class="bar-track"><i></i></div></div>
+      <div class="bar" data-bar="rad"><span class="bar-icon" data-icon="rad"></span><span class="bar-name">Radiation Safety</span><b class="bar-num">0</b>
+        <div class="bar-track"><i></i></div></div>
+      <div class="stamina" aria-label="Stamina"><span>Stamina</span><div class="bar-track thin"><i></i></div></div>
+      <div id="buffs" class="buffs"></div>
+    </section>
+
+    <!-- Compass strip -->
+    <div class="compass panel" aria-hidden="true"><div id="compassStrip" class="compass-strip"></div><span class="compass-needle"></span></div>
+
+    <!-- Minimap -->
+    <section class="minimap panel" aria-label="Minimap">
+      <canvas id="minimap" width="220" height="220"></canvas>
+      <p class="minimap-label" id="minimapLabel">Moon · Test Map</p>
+    </section>
+
+    <!-- Messages -->
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+    <div id="combo" class="combo" hidden></div>
+    <div id="popups" class="popups" aria-hidden="true"></div>
+
+    <div class="hud-buttons">
+      <button id="helpBtn" class="btn btn-ghost" type="button" aria-label="Controls (H)">H · Controls</button>
+      <button id="pauseBtn" class="btn btn-ghost" type="button" aria-label="Pause (Esc)">Esc · Pause</button>
+    </div>
+    <div id="controlsCard" class="controls-card panel" hidden>
+      <h3>Controls</h3>
+      <ul>
+        <li><kbd>W A S D</kbd> / arrows: move</li>
+        <li>Drag the mouse: look around · Wheel: zoom</li>
+        <li><kbd>Shift</kbd>: sprint (uses stamina)</li>
+        <li><kbd>Space</kbd>: jump (low gravity!)</li>
+        <li><kbd>C</kbd>: crouch</li>
+        <li>Walk into glowing supplies to collect them</li>
+        <li><kbd>Esc</kbd>: pause · <kbd>H</kbd>: hide this card</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ================= START SCREEN ================= -->
+  <div id="startScreen" class="overlay">
+    <div class="start-card panel">
+      <div class="logo-mark">
+        <img src="assets/logo.png" alt="" width="120" height="120" onerror="this.remove()">
+        <svg class="logo-fallback" viewBox="0 0 48 48" aria-hidden="true">
+          <circle cx="24" cy="24" r="22" fill="#141a3a" stroke="#e8f22a" stroke-width="2"/>
+          <circle cx="24" cy="24" r="8" fill="#ff8f5a"/>
+          <ellipse cx="24" cy="24" rx="17" ry="6" fill="none" stroke="#7cf5c8" stroke-width="1.6" transform="rotate(-25 24 24)"/>
+          <circle cx="36" cy="12" r="1.4" fill="#fff"/><circle cx="12" cy="34" r="1" fill="#fff"/>
+        </svg>
+      </div>
+      <p class="eyebrow">NASA Space Apps Challenge 2026 · Junior Astronaut Mission Trainer</p>
+      <h1>Survive the Sol<br><span>Storm Royale</span></h1>
+      <p class="pitch">Drop onto the Moon or Mars, collect supplies, drive a rover, and race back to shelter before a <b>real NASA solar storm</b> hits. No weapons – just smart astronaut choices!</p>
+      <button id="playBtn" class="btn btn-primary btn-lg" type="button" disabled>Loading…</button>
+      <p class="caption">Step 1 test build: explore the Moon map and collect supplies.</p>
+    </div>
+  </div>
+
+  <!-- ================= PAUSE ================= -->
+  <div id="pauseScreen" class="overlay" hidden>
+    <div class="start-card panel">
+      <h2>Paused</h2>
+      <button id="resumeBtn" class="btn btn-primary btn-lg" type="button">Resume</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
