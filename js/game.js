@@ -1,37 +1,34 @@
 // =====================================================================
-// Survive the Sol: Storm Royale – GAME (the main controller)
-// Connects every module and runs the mission:
-//   menu → briefing (pick a card) → drop (lander) → explore + REAL solar
-//   storm → night report → next sol … → mission end (+ newspaper)
-// Rules that matter for the NASA challenge live here:
-//   • only 3 core bars (Power, Life Support, Radiation Safety)
-//   • storms come from real archived DONKI flares, scaled by RadLab data
-//   • every action costs something (cards, rover power, backpack slots)
+// Survive the Sol – GAME (main controller)
+// Flow (matches design/*.dc.html):
+//   Name page → Lobby → each day: Cards (pick 3 of 5) → land + explore
+//   → dangers (a REAL DONKI solar storm every day, plus other dangers)
+//   → use a card (1/2/3) → Night report → … 12 days → Win (or Lose)
+// NASA rules kept here: only 3 core bars (Power, Life Support, Radiation
+// Safety); storms are real archived DONKI flares; damage is scaled by
+// NASA OSDR RadLab data; every card has a real cost.
 // =====================================================================
 import * as THREE from 'three';
 import { CONFIG, QUALITY } from './config.js';
-import { loadData } from './data.js';
-import { save, rankFor, SUITS, ROVER_SKINS, backpackLevelFor, BACKPACK_UNLOCKS } from './save.js';
+import { loadData, pickFlare, flareStrength } from './data.js';
+import { save, rankFor, nextRank, SUITS, ROVER_SKINS } from './save.js';
 import { audio } from './audio.js';
 import { input, setupTouch } from './input.js';
 import { createTerrain } from './world/terrain.js';
 import { buildProps } from './world/props.js';
-import { createPlayer, pushOut } from './player.js';
+import { createPlayer, makeAstronaut, pushOut } from './player.js';
 import { createCameraRig } from './camera.js';
-import { createLoot, LOOT_TYPES, RARITY, rarityById, describeItem } from './loot.js';
-import { createBackpack } from './backpack.js';
-import { CARD_MODS, cardBarEffects, dealCards, cardReport } from './cards.js';
+import { createLoot, LOOT_TYPES, RARITY } from './loot.js';
+import { dealCards, blockShare, isRight, handTags, bestCardsFor } from './cards.js';
 import { createRovers } from './rover.js';
-import { createBots, CREW } from './bots.js';
-import { createStorm } from './storm.js';
 import { createAirdrops } from './airdrops.js';
 import { createHazards } from './hazards.js';
-import { createLander, updateDrop } from './lander.js';
+import { updateDrop } from './lander.js';
 import { createEffects } from './effects.js';
-import { createHud, BAR_NAMES } from './hud.js';
+import { createHud, BAR_NAMES, esc, icon } from './hud.js';
 import { createRovi, createTutorial, GLOSSARY } from './rovi.js';
 import * as screens from './screens.js';
-import { downloadCanvas } from './newspaper.js';
+import { drawNewspaper, downloadCanvas } from './newspaper.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v) => Math.max(0, Math.min(100, v));
@@ -39,84 +36,164 @@ save.load();
 const S = save.data.settings;
 const quality = QUALITY[S.quality] || QUALITY.medium;
 
-// ---------------- renderer, scene, lights ----------------
+// Timing of a day (seconds)
+const T = { explore: 45, exploreTutorial: 60, warn: 5, zone: 18, zoneFrom: 70, zoneTo: 22 };
+const DANGER_DAMAGE = { meteor: { life: 16 }, power_failure: { power: 20 }, dust_storm: { power: 14, life: 8 } };
+const LOOT_MAP_COLOR = { ice: '#7cf5c8', oxygen: '#7cf5c8', medkit: '#7cf5c8', battery: '#e8f22a', solar: '#e8f22a', shield: '#8fb0ff', boots: '#ffffff', scanner: '#ffffff' };
+
+// ---------------- renderer ----------------
 const canvas = $('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: quality.pixelRatio > 1, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: quality.pixelRatio > 1, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio));
-renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = quality.shadows;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+// ---------------- the whole window, at any size ----------------
+// --s scales the 1280×720 screen designs; --hs scales the HUD corners.
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  lobbyCam.aspect = w / h; lobbyCam.updateProjectionMatrix();
+  const mobile = w < 760;
+  const s = mobile ? 1 : Math.min(2, Math.max(0.6, Math.min(w / 1280, h / 720)));
+  const hs = mobile ? Math.min(1, Math.max(0.62, w / 600)) : Math.min(1.7, Math.max(0.72, Math.min(w / 1280, h / 720)));
+  document.documentElement.style.setProperty('--s', s);
+  document.documentElement.style.setProperty('--hs', hs);
+  document.body.classList.toggle('mobile', mobile);
+}
+
+// ---------------- game world scene ----------------
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
 const hemi = new THREE.HemisphereLight('#aab8ff', '#1c1c26', 0.55);
 const sun = new THREE.DirectionalLight('#fff4e0', 1.7);
 sun.castShadow = quality.shadows;
 sun.shadow.mapSize.set(1024, 1024);
 Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, near: 1, far: 260 });
 scene.add(hemi, sun, sun.target);
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
 
-// ---------------- persistent pieces ----------------
-const world = {};                         // filled by buildLevel (terrain + props)
+// ---------------- lobby scene: astronaut on a Moon platform + Earth ----------------
+const lobbyScene = new THREE.Scene();
+const lobbyCam = new THREE.PerspectiveCamera(36, 1, 0.1, 500);
+lobbyCam.position.set(0, 2.6, 10.5); lobbyCam.lookAt(0, 1.2, 0);
+let lobbyAstro = null;
+(function buildLobby() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(310, 150, 10, 300, 200, 420);
+  grad.addColorStop(0, '#1d2560'); grad.addColorStop(0.6, '#0b1026'); grad.addColorStop(1, '#070a1a');
+  g.fillStyle = grad; g.fillRect(0, 0, 512, 512);
+  lobbyScene.background = new THREE.CanvasTexture(c);
+  lobbyScene.background.colorSpace = THREE.SRGBColorSpace;
+  lobbyScene.add(new THREE.HemisphereLight('#c9d4ff', '#2a2a40', 0.9));
+  const key = new THREE.DirectionalLight('#ffffff', 1.6); key.position.set(4, 6, 6); lobbyScene.add(key);
+  const pts = new Float32Array(300 * 3);
+  for (let i = 0; i < 300; i++) pts.set([(Math.random() - 0.5) * 120, Math.random() * 50 + 2, -30 - Math.random() * 40], i * 3);
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+  lobbyScene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#ffffff', size: 1.6, sizeAttenuation: false })));
+  const earth = new THREE.Mesh(new THREE.SphereGeometry(0.85, 32, 20), new THREE.MeshStandardMaterial({ color: '#3f78e0', emissive: '#14306b', emissiveIntensity: 0.5, roughness: 0.6 }));
+  earth.position.set(4.3, 3.7, -3); lobbyScene.add(earth);
+  const land = new THREE.Mesh(new THREE.SphereGeometry(0.865, 14, 10, 0.3, 1.3, 0.7, 0.9), new THREE.MeshStandardMaterial({ color: '#4fbf6a', flatShading: true }));
+  land.position.copy(earth.position); lobbyScene.add(land);
+  const plat = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.6, 0.3, 40), new THREE.MeshStandardMaterial({ color: '#8d92a8', flatShading: true, roughness: 0.9 }));
+  plat.position.y = -0.15; lobbyScene.add(plat);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.9, 0.035, 8, 80), new THREE.MeshBasicMaterial({ color: '#e8f22a', transparent: true, opacity: 0.7 }));
+  ring.rotation.x = Math.PI / 2; ring.position.y = 0.02; lobbyScene.add(ring);
+  for (let i = 0; i < 8; i++) {
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.2, 0), new THREE.MeshStandardMaterial({ color: '#6d7186', flatShading: true }));
+    const a = Math.random() * Math.PI * 2; rock.position.set(Math.cos(a) * 3.2, 0.05, Math.sin(a) * 3.2); lobbyScene.add(rock);
+  }
+  lobbyAstro = makeAstronaut((SUITS.find((s) => s.id === S.suit) || SUITS[0]).color);
+  lobbyAstro.scale.setScalar(1.3);
+  lobbyScene.add(lobbyAstro);
+})();
+function animateLobby(t) {
+  const u = lobbyAstro.userData;
+  lobbyAstro.position.y = Math.sin(t * 1.6) * 0.04;                 // breathing bob
+  lobbyAstro.rotation.y = Math.sin(t * 0.5) * 0.35;                  // looks around
+  const wave = Math.max(0, Math.sin(t * 0.7)) ** 6;                  // waves now and then
+  u.armR.rotation.z = -0.2 - wave * 2.2; u.armR.rotation.x = -wave * 0.3;
+  u.armL.rotation.z = 0.15 + Math.sin(t * 1.6) * 0.04;
+  u.legL.rotation.x = 0; u.legR.rotation.x = 0;
+}
+
+// ---------------- persistent game pieces ----------------
+const world = {};
 const fx = createEffects(scene, quality.particles);
 const player = createPlayer(scene, world);
 player.mode = 'hidden';
 const rig = createCameraRig(camera, canvas);
 rig.sensitivity = S.sensitivity; rig.reduceMotion = S.reduceMotion;
-const lander = createLander(scene);
 const hud = createHud();
 const rovi = createRovi($('roviBubble'), $('roviText'));
 const tutorial = createTutorial(rovi);
-const backpack = createBackpack(1);
 let data = null, marsTexture = null, marsImage = null;
-let terrain = null, props = null, loot = null, rovers = null, bots = null, storm = null, airdrops = null, hazards = null;
+let terrain = null, props = null, loot = null, rovers = null, airdrops = null, hazards = null;
+
+// storm visuals: dashed safe-zone ring around the base + shield bubble around you
+const zoneRing = new THREE.Group();
+for (let i = 0; i < 40; i++) {
+  const dash = new THREE.Mesh(new THREE.RingGeometry(0.985, 1.015, 6, 1, (i / 40) * Math.PI * 2, (Math.PI * 2 / 40) * 0.55),
+    new THREE.MeshBasicMaterial({ color: '#7cf5c8', transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
+  dash.rotation.x = -Math.PI / 2;
+  zoneRing.add(dash);
+}
+const zoneWall = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 60, 1, true).translate(0, 0.5, 0),
+  new THREE.MeshBasicMaterial({ color: '#7cf5c8', transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false }));
+zoneRing.add(zoneWall);
+zoneRing.visible = false;
+scene.add(zoneRing);
+const bubble = new THREE.Group();
+bubble.add(new THREE.Mesh(new THREE.SphereGeometry(1.7, 28, 18), new THREE.MeshBasicMaterial({ color: '#8fb0ff', transparent: true, opacity: 0.22, depthWrite: false })));
+bubble.add(new THREE.Mesh(new THREE.IcosahedronGeometry(1.75, 2), new THREE.MeshBasicMaterial({ color: '#8fb0ff', wireframe: true, transparent: true, opacity: 0.45 })));
+bubble.visible = false;
+scene.add(bubble);
 
 const G = {
-  phase: 'loading', paused: false, level: null, mission: null, sol: null, time: 0,
-  bagOpen: false, bagSel: null, inRover: null, inLander: false,
-  buffs: { speed: 0, scanner: 0 }, combo: 0, lastPickup: -99, promptMsg: null, promptUntil: 0,
-  lastCause: { power: 'drain', life: 'drain', rad: 'storm' },
+  phase: 'loading', paused: false, level: null, selected: 'moon', M: null, D: null, time: 0,
+  inRover: null, lastHit: null, prompt: null, promptUntil: 0, infoBack: null,
 };
-window.game = { G, world, player, rig, get loot() { return loot; }, get storm() { return storm; }, get bots() { return bots; }, get rovers() { return rovers; }, backpack, save };
+window.game = { G, world, player, rig, save, get loot() { return loot; } };
 
 const suitColor = () => (SUITS.find((s) => s.id === S.suit) || SUITS[0]).color;
 const roverColor = () => (ROVER_SKINS.find((s) => s.id === S.roverSkin) || ROVER_SKINS[0]).color;
-const feed = (text, kind) => hud.feed(text, kind);
+const displayName = () => { const n = (save.data.name || '').trim() || 'Commander'; return /^commander\b/i.test(n) ? n : 'Commander ' + n; };
+const levelName = (lvl) => (lvl === 'mars' ? 'MARS BASE' : 'MOON BASE');
 
-// ---------------- building a level (Moon or Mars) ----------------
+// ---------------- building a level ----------------
+const SKY = { moon: { bg: '#05071a', fog: '#070b22', near: 70 }, mars: { bg: '#c58f66', fog: '#c98d63', near: 60 } };
 function buildLevel(level) {
   if (G.level === level) return;
-  if (terrain) {
-    scene.remove(terrain.mesh); terrain.mesh.geometry.dispose();
-    props.dispose(); loot.dispose(); rovers.dispose(); bots.dispose(); storm.dispose(); airdrops.clear(); hazards.clear();
-  }
+  if (terrain) { scene.remove(terrain.mesh); terrain.mesh.geometry.dispose(); props.dispose(); loot.dispose(); rovers.dispose(); airdrops.clear(); hazards.clear(); }
   for (const k of Object.keys(world)) delete world[k];
   terrain = createTerrain(level, quality.terrainSegments, level === 'mars' ? marsTexture : null);
   scene.add(terrain.mesh);
   Object.assign(world, terrain);
   props = buildProps(scene, terrain, quality);
   Object.assign(world, props);
+  world.setShelter(0, 16);           // the base's yellow beacon beam shows the way home
   loot = createLoot(scene, world);
   rovers = createRovers(scene, world, roverColor());
-  bots = createBots(scene, world, loot, feed);
-  storm = createStorm(scene, world, data, level);
   airdrops = createAirdrops(scene, world, loot, fx);
   hazards = createHazards(scene, world, fx);
   hud.setWorld(world, marsImage);
   rig.heightAt = world.heightAt;
   G.level = level;
-  const mars = level === 'mars';
-  scene.background = new THREE.Color(mars ? '#c58f66' : '#05071a');
-  scene.fog = new THREE.Fog(mars ? '#c98d63' : '#070b22', mars ? 60 : 70, quality.fogFar);
-  hemi.color.set(mars ? '#f2c39a' : '#aab8ff'); hemi.groundColor.set(mars ? '#4a2416' : '#1c1c26');
-  sun.color.set(mars ? '#ffe2c0' : '#fff4e0'); sun.intensity = mars ? 1.5 : 1.7;
-  fx.setFootprintColor(mars ? '#3a1408' : '#000000');
+  const sky = SKY[level];
+  scene.background = new THREE.Color(sky.bg);
+  scene.fog = new THREE.Fog(sky.fog, sky.near, quality.fogFar);
+  hemi.color.set(level === 'mars' ? '#f2c39a' : '#aab8ff'); hemi.groundColor.set(level === 'mars' ? '#4a2416' : '#1c1c26');
+  sun.color.set(level === 'mars' ? '#ffe2c0' : '#fff4e0'); sun.intensity = level === 'mars' ? 1.5 : 1.7;
+  fx.setFootprintColor(level === 'mars' ? '#3a1408' : '#000000');
 }
-function setFog(near, far) { scene.fog.near = near; scene.fog.far = far; }
+// storm look: red sky + fog (Storm design)
+function setStormSky(k) {
+  const sky = SKY[G.level];
+  scene.background.set(sky.bg).lerp(new THREE.Color('#3b1020'), k);
+  scene.fog.color.set(sky.fog).lerp(new THREE.Color('#4a1a24'), k);
+}
 
 // ---------------- tooltips for hard words ----------------
 const TIP_TEXT = {
@@ -132,7 +209,7 @@ function showTip(el, key) {
   const r = el.getBoundingClientRect(), w = Math.min(320, innerWidth - 24);
   b.style.width = w + 'px';
   b.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2)) + 'px';
-  let top = r.bottom + 10;
+  const top = r.bottom + 10;
   b.style.top = top + 'px';
   if (top + b.offsetHeight > innerHeight - 8) b.style.top = Math.max(8, r.top - b.offsetHeight - 10) + 'px';
   tipOwner = el;
@@ -145,50 +222,62 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // ---------------- bars ----------------
-function change(bar, amount, cause, popup = false) {
-  const M = G.mission; if (!M) return;
+function change(bar, amount, cause) {
+  const M = G.M; if (!M) return;
   M.bars[bar] = clamp(M.bars[bar] + amount);
-  if (amount < 0) G.lastCause[bar] = cause;
-  if (popup) hud.barDelta(bar, amount);
-  const L = M.learn;
-  L.minPower = Math.min(L.minPower, M.bars.power); L.minLife = Math.min(L.minLife, M.bars.life); L.minRad = Math.min(L.minRad, M.bars.rad);
+  if (amount < 0) M.lastCause[bar] = cause;
 }
-function firstEmptyBar() { return ['rad', 'power', 'life'].find((k) => G.mission.bars[k] <= 0) || null; }
+const emptyBar = () => ['rad', 'power', 'life'].find((k) => G.M.bars[k] <= 0) || null;
 
-// ---------------- MENU ----------------
-function menuCtx() { return { save: save.data, data }; }
-const menuHandlers = {
-  name: (v) => { save.data.name = v.trim(); save.write(); },
-  start: () => startMission(save.data.moonWon && !save.data.marsWon ? 'mars' : 'moon'),
-  choose: () => showChoose(),
-  how: () => screens.showHow(menuCtx(), { menu: goMenu }),
-  about: () => screens.showAbout(menuCtx(), { menu: goMenu }),
-  credits: () => screens.showCredits(menuCtx(), { menu: goMenu }),
-  settings: () => showSettings(false),
-};
-function goMenu() {
-  endLoops();
-  G.phase = 'menu'; G.paused = false; G.mission = null;
-  closeBag(); tutorial.stop(); hideTip();
-  $('hud').hidden = true; $('vignette').style.opacity = 0; $('dustOverlay').style.opacity = 0;
-  player.mode = 'hidden'; player.model.visible = false; lander.hide();
-  if (bots) bots.hideAll();
-  if (!G.level) buildLevel('moon');
-  rig.menuOrbit = true; rig.extraDistance = 48; rig.pitch = 0.3;
-  screens.showMenu(menuCtx(), menuHandlers);
-  audio.music(S.music);
-}
-function showChoose() {
-  screens.showChoose(menuCtx(), {
-    menu: goMenu,
-    mission: (lvl) => { if (lvl === 'mars' && !(save.data.moonWon || S.unlockAll)) return; startMission(lvl); },
-    suit: (id) => { S.suit = id; save.write(); player.setAccent(suitColor()); showChoose(); },
-    rover: (id) => { S.roverSkin = id; save.write(); if (rovers) rovers.setSkin(roverColor()); showChoose(); },
+// ================= 1. NAME PAGE =================
+const RANDOM_NAMES = ['Commander Ayesha', 'Commander Bilal', 'Commander Zara', 'Commander Hamza', 'Commander Noor', 'Commander Ali', 'Commander Sara', 'Commander Omar', 'Commander Fatima', 'Commander Yusuf', 'Commander Maya', 'Commander Leo'];
+function goName() {
+  G.phase = 'name';
+  $('hud').hidden = true;
+  screens.showName({ name: save.data.name, returning: !!save.data.name }, {
+    random: () => screens.setNameInput(RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]),
+    start: (name) => {
+      audio.unlock(); audio.sfx('select');
+      save.data.name = (name || RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]).slice(0, 20);
+      save.write();
+      goLobby();
+    },
   });
 }
+
+// ================= 2. LOBBY =================
+function goLobby(select) {
+  endLoops(); hideDanger();
+  G.phase = 'lobby'; G.paused = false; G.M = null; G.D = null;
+  $('hud').hidden = true; hud.vignette(0);
+  player.mode = 'hidden'; player.model.visible = false;
+  const marsUnlocked = save.data.moonWon || S.unlockAll;
+  if (select) G.selected = select;
+  if (G.selected === 'mars' && !marsUnlocked) G.selected = 'moon';
+  lobbyAstro.userData.stripeMat.color.set(suitColor());
+  const xp = save.data.xp, rank = rankFor(xp), next = nextRank(xp);
+  screens.showLobby({
+    name: save.data.name, displayName: displayName(), rank: rank.label, xp, next: next ? next.xp : null,
+    xpInRank: xp - rank.xp, xpRankSize: next ? next.xp - rank.xp : 1, stars: save.data.stars,
+    marsUnlocked, selected: G.selected, inProgress: save.data.inProgress, total: S.missionLength,
+  }, {
+    select: (lvl) => { if (lvl === 'mars' && !marsUnlocked) { audio.sfx('full'); return; } audio.sfx('click'); goLobby(lvl); },
+    start: () => { audio.unlock(); startMission(G.selected); },
+    how: () => info('how'), about: () => info('about'), credits: () => info('credits'), settings: () => info('settings'),
+  });
+  audio.music(S.music);
+}
+function info(which, back = goLobby) {
+  G.infoBack = back;
+  const h = { back: () => { audio.sfx('click'); back(); } };
+  if (which === 'how') screens.showHow({ total: S.missionLength }, h);
+  else if (which === 'about') screens.showAbout({ data }, h);
+  else if (which === 'credits') screens.showCredits({}, h);
+  else showSettings(back !== goLobby);
+}
 function showSettings(inGame) {
-  const h = {
-    menu: goMenu, pause: openPause,
+  screens.showSettings({ settings: S, inGame }, {
+    back: () => G.infoBack(),
     set: (arg) => {
       const [name, raw] = arg.split(':');
       const v = raw === 'true' ? true : raw === 'false' ? false : isNaN(+raw) ? raw : +raw;
@@ -197,597 +286,438 @@ function showSettings(inGame) {
       showSettings(inGame);
     },
     setValue: (name, v) => { S[name] = v; save.write(); applySettings(); },
-    resetProgress: () => { if (confirm('Reset all XP, unlocks and settings?')) { save.reset(); location.reload(); } },
-  };
-  screens.showSettings({ save: save.data, inGame }, h);
+    reset: () => { if (confirm('Reset all XP, stars, unlocks and settings?')) { save.reset(); location.reload(); } },
+  });
 }
 function applySettings() {
   audio.setVolume(S.volume);
   audio.music(S.music && G.phase !== 'loading');
-  rig.sensitivity = S.sensitivity;
-  rig.reduceMotion = S.reduceMotion;
+  rig.sensitivity = S.sensitivity; rig.reduceMotion = S.reduceMotion;
   document.body.classList.toggle('reduce-motion', !!S.reduceMotion);
+  document.body.dataset.theme = S.theme || 'navy';
   updateTouch();
 }
+// Phone controls only on touch devices (or if forced on in the save file).
 let touchReady = false;
 function updateTouch() {
-  let coarse = false;
-  try { coarse = matchMedia('(pointer: coarse)').matches; } catch (e) { /* ignore */ }
-  const on = S.touch === 'on' || (S.touch === 'auto' && coarse);
+  let touchDevice = false;
+  try { touchDevice = matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0; } catch (e) { /* ignore */ }
+  const on = S.touch === 'on' || (S.touch !== 'off' && touchDevice);
   $('touch').hidden = !on;
   document.body.classList.toggle('touch-on', on);
   if (on && !touchReady) { setupTouch($('joystick'), $('knob'), [...document.querySelectorAll('.tbtn')]); touchReady = true; }
 }
 
-// ---------------- PAUSE ----------------
-function openPause() {
-  if (!['drop', 'explore'].includes(G.phase)) return;
-  G.paused = true; closeBag();
-  endLoops();
-  screens.showPause({ sol: G.mission.sol, total: G.mission.total, levelName: G.level === 'mars' ? 'Mars' : 'Moon' }, {
-    resume: resume,
-    howInGame: () => screens.showHowInGame({ save: save.data }, { pause: openPause }),
-    settingsInGame: () => showSettings(true),
-    quit: () => { if (confirm('Quit this mission? Progress in this mission will be lost.')) goMenu(); },
-  });
-}
-function resume() { screens.closeScreen(); G.paused = false; clock.getDelta(); }
-
-// ---------------- MISSION ----------------
+// ================= MISSION =================
 function startMission(level) {
-  audio.unlock(); audio.music(S.music);
   if (level === 'mars' && !(save.data.moonWon || S.unlockAll)) level = 'moon';
   buildLevel(level);
-  const tutorialMode = level === 'moon' && !save.data.tutorialDone;
-  G.mission = {
-    level, sol: 0, total: S.missionLength, bars: { ...CONFIG.bars.start }, xp: 0, history: [], tutorial: tutorialMode,
-    usedFacts: new Set(), startXp: save.data.xp,
-    learn: { roverPower: 0, powerItems: 0, lifeItems: 0, shieldUsed: 0, safeCount: 0, foodCards: 0, powerCards: 0, shieldCards: 0,
-      minPower: 100, minLife: 100, minRad: 100, delayMsgs: 0, supplies: 0, bestPlace: 9, storms: [] },
+  const ip = save.data.inProgress && save.data.inProgress.level === level ? save.data.inProgress : null;
+  G.M = {
+    level, day: ip ? ip.day - 1 : 0, total: S.missionLength,
+    bars: ip ? { ...ip.bars } : { ...CONFIG.bars.start },
+    usedFlares: new Set(ip ? ip.usedFlares : []), usedFacts: new Set(),
+    xp: ip ? ip.xp : 0, startRank: rankFor(save.data.xp).id,
+    lastCause: { power: 'drain', life: 'drain', rad: 'drain' },
+    cardsUsed: ip ? ip.cardsUsed : {}, storms: ip ? ip.storms : [],
+    tutorial: level === 'moon' && !save.data.tutorialDone,
   };
-  G.lastCause = { power: 'drain', life: 'drain', rad: 'storm' };
+  save.data.inProgress = null; save.write();
   player.setAccent(suitColor());
   rovers.setSkin(roverColor());
-  nextSol();
+  nextDay();
 }
 
-function nextSol() {
-  const M = G.mission;
-  M.sol++;
-  endLoops();
-  G.sol = {
-    card: null, mod: {}, t: 0, startBars: { ...M.bars }, warned: false, dust: 0, bannerT: 0, beepAt: -1,
-    snapshots: [], snapT: 0, earthT: 18, earthQueue: [], radAccum: 0, radWarnT: 0, ended: false, drove: false, bagOpened: false,
-    tutorialSol: M.tutorial && M.sol === 1, announcedDrop: -1,
-    stats: { radTaken: 0, radBlocked: 0, cardPower: 0, cardLife: 0, cardPowerCost: 0, drainSaved: 0, roverMeters: 0, collected: 0, used: 0, points: 0 },
+// Plan a day: one real solar storm (always) + sometimes other dangers.
+function planDay() {
+  const M = G.M, day = M.day;
+  const flare = pickFlare(data, M.level, day, M.usedFlares);
+  const types = [];
+  const extraChance = day <= 3 ? 0 : day <= 8 ? 0.4 : 0.6;
+  if (M.level === 'mars' && Math.random() < 0.55) types.push('dust_storm');
+  if (Math.random() < extraChance * (types.length ? 0.5 : 1)) types.push(Math.random() < 0.5 ? 'meteor' : 'power_failure');
+  const tutorialDay = M.tutorial && day === 1;
+  const explore = tutorialDay ? T.exploreTutorial : T.explore;
+  const dangers = types.map((type, i) => ({ type, at: 14 + i * 13 + Math.random() * 5 }));
+  dangers.push({ type: 'solar_storm', at: explore, flare });
+  return { flare, dangers, explore, tutorialDay };
+}
+
+function nextDay() {
+  const M = G.M;
+  M.day++;
+  endLoops(); hideDanger();
+  const plan = planDay();
+  G.D = {
+    ...plan, day: M.day, t: 0, hand: [], used: new Set(), active: null, zoneT: 0, zoneR: 0, over: false,
+    startBars: { ...M.bars }, log: [], collected: 0, points: 0, freezeT: 0, slowT: 0, bubbleT: 0, stuckT: 0, dustT: 0,
+    snapshots: [], snapT: 0, earthT: 20,
   };
-  G.buffs = { speed: 0, scanner: 0 };
-  // reset the world for a fresh sol
-  loot.clear(); airdrops.clear(); hazards.clear(); bots.hideAll(); rovers.reset(); fx.clearFootprints();
-  G.inRover = null; G.inLander = false; player.mode = 'hidden'; player.model.visible = false; player.speedBoost = 0;
-  closeBag(); $('hud').hidden = true; hud.stormBanner(null, null, false);
-  setFog(G.level === 'mars' ? 60 : 70, quality.fogFar); $('dustOverlay').style.opacity = 0; $('vignette').style.opacity = 0;
-  rig.menuOrbit = true; rig.extraDistance = 48; rig.pitch = 0.3;
-  G.phase = 'briefing';
-  G.offer = dealCards(data.cards, G.level, 3);
-  screens.showBriefing({ cards: G.offer, sol: M.sol, total: M.total, level: G.level, bars: M.bars, tutorial: G.sol.tutorialSol, seconds: G.sol.tutorialSol ? 40 : 15 },
-    { pick: pickCard, tick: () => audio.sfx('beep') });
-}
-
-const SHIELD_CARDS = ['shield_wall', 'water_wall', 'storm_shelter', 'dosimeter'];
-const FOOD_CARDS = ['veg', 'recycle_water', 'oxygen', 'fix_air', 'ice_mining', 'moxie'];
-const POWER_CARDS = ['fix_solar', 'clean_dust', 'nuclear', 'power_save'];
-
-function pickCard(id) {
-  if (G.phase !== 'briefing') return;
-  audio.unlock(); audio.sfx('select');
-  const M = G.mission, s = G.sol;
-  const card = G.offer.find((c) => c.id === id) || G.offer[0];
-  const mod = CARD_MODS[card.id] || {};
-  s.card = card; s.mod = mod;
-  const fxBars = cardBarEffects(card);
-  for (const k in fxBars) change(k, fxBars[k], 'card');
-  if (SHIELD_CARDS.includes(card.id)) M.learn.shieldCards++;
-  if (FOOD_CARDS.includes(card.id)) M.learn.foodCards++;
-  if (POWER_CARDS.includes(card.id)) M.learn.powerCards++;
-  player.mods = mod;
-  world.greenhouse.visible = !!mod.greenhouse;
-  loot.respawn(mod);
-  storm.begin({ mods: mod, tutorial: s.tutorialSol });
-  airdrops.plan(mod.airdropExtra || 0);
-  if (!s.tutorialSol) hazards.schedule(G.level, M.sol);
-  backpack.reset(backpackLevelFor(save.data.xp));
-  (mod.startItems || []).forEach(([type, r]) => backpack.add({ type, rarity: rarityById(r) }));
-  screens.closeScreen();
-  $('hud').hidden = false;
-  $('commPanel').hidden = G.level !== 'mars';
-  $('commMsg').textContent = 'Waiting for Earth… messages take about 20 minutes to arrive.';
-  hud.cardBadge(card, mod);
-  hud.flareChip(null);
-  hud.quickslots(backpack);
-  hud.zone({ stage: 'calm', label: 'Drop', seconds: 0 });
-  for (const k in fxBars) hud.barDelta(k, fxBars[k]);
-  if (firstEmptyBar()) { failMission(firstEmptyBar(), 'card'); return; }
-  startDrop();
-  if (s.tutorialSol) tutorial.start();
-}
-
-// ---------------- DROP ----------------
-function startDrop() {
-  G.phase = 'drop';
-  rig.menuOrbit = false; rig.extraDistance = 16; rig.pitch = 0.35;
-  lander.start(world.heightAt);
-  G.inLander = true;
-  player.mode = 'hidden';
-  player.pos.copy(lander.model.position);
-  // each bot jumps out somewhere along the flight path
-  const spots = bots.bots.map(() => {
-    const k = 0.15 + Math.random() * 0.7;
-    const p = lander.pointAt(k);
-    const spot = new THREE.Vector3(p.x + (Math.random() - 0.5) * 50, 0, p.z + (Math.random() - 0.5) * 50);
-    const r = Math.hypot(spot.x, spot.z);
-    if (r > 165) spot.multiplyScalar(165 / r);
-    pushOut(spot, world.colliders);
-    spot.k = k;
-    return spot;
+  G.phase = 'cards';
+  $('hud').hidden = true;
+  const offer = dealCards(data.cards, M.level, plan.dangers.map((d) => d.type));
+  screens.showCards({
+    day: M.day, total: M.total, levelName: levelName(M.level), offer, seconds: 15,
+    landLabel: M.level === 'mars' ? 'LAND ON MARS' : 'LAND ON MOON',
+    dangerLabel: (c) => data.dangers[c.dangerTypes[0]].label,
+  }, {
+    tick: (s) => audio.sfx(s),
+    done: (ids) => { G.D.hand = ids.map((id) => offer.find((c) => c.id === id)); audio.sfx('select'); startLanding(); },
   });
-  bots.reset(spots);
-  bots.bots.forEach((b, i) => { b.dropK = spots[i].k; });
-  audio.loop('thruster', true, 0.4);
-  if (!G.sol.tutorialSol) rovi.say('Press [Space] to jump out of the lander! The dashed line on the map is the flight path.', { force: true, seconds: 7 });
-  feed('Lander on approach. Jump when you are over a good spot!', 'info');
 }
 
-function eject() {
-  G.inLander = false;
-  player.mode = 'drop';
-  player.pos.copy(lander.model.position); player.pos.y -= 3;
-  player.vel.set(0, 0, 0);
-  player.facing = Math.atan2(lander.to.x - lander.from.x, lander.to.z - lander.from.z);
-  rig.extraDistance = 6;
-  audio.sfx('jump');
-}
-
-function updateDropPhase(dt) {
-  lander.update(dt, G.time);
-  if (G.inLander) {
-    player.pos.copy(lander.model.position);
-    if (input.pressed('Space') || lander.progress >= 1) eject();
-  } else if (player.mode === 'drop') {
-    audio.loop('thruster', true, 1);
-    if (updateDrop(player, dt, input.moveAxis(), rig, world.heightAt, fx)) land();
+// ---------------- landing: a short thruster descent near the base ----------------
+function startLanding() {
+  const D = G.D;
+  screens.closeScreen();
+  G.phase = 'land';
+  $('hud').hidden = false;
+  $('earthChip').hidden = G.level !== 'mars';
+  loot.respawn({ loot: { bag: 0 }, lootCountMult: 0.85 });
+  loot.items.forEach((it) => { it.mapColor = LOOT_MAP_COLOR[it.type]; });
+  airdrops.clear(); airdrops.plan(0);
+  hazards.clear(); rovers.reset(); fx.clearFootprints();
+  world.greenhouse.visible = false;
+  // land somewhere around the base, not on top of a parked rover
+  let a = 0;
+  for (let i = 0; i < 20; i++) {
+    a = Math.random() * Math.PI * 2;
+    if (!rovers.list.some((r) => Math.hypot(r.pos.x - Math.cos(a) * 30, r.pos.z - Math.sin(a) * 30) < 12)) break;
   }
-  for (const b of bots.bots) if (b.state === 'waiting' && lander.progress >= b.dropK) bots.jump(b, lander.model.position);
-  bots.update(dt, 0, storm);
-  tutorial.update(dt, { phase: G.phase, playerMode: G.inLander ? 'lander' : player.mode, moved: 0, collected: 0, bagOpened: false, used: 0, droveRover: false, inFinal: false, stormStage: 'calm' });
+  player.mods = {};
+  player.placeAt(Math.cos(a) * 30, Math.sin(a) * 30, world.heightAt(Math.cos(a) * 30, Math.sin(a) * 30) + 32);
+  player.mode = 'drop'; player.stamina = 100; player.exhausted = false;
+  player.facing = Math.atan2(-player.pos.x, -player.pos.z) + Math.PI;
+  rig.yaw = player.facing + Math.PI; rig.pitch = 0.35; rig.extraDistance = 4; rig.menuOrbit = false;
+  rig.update(player.pos, 1, true);
+  hud.hand(D.hand, D.used, null, false);
+  hud.stormLook(false); setStormSky(0); zoneRing.visible = false; bubble.visible = false;
+  audio.loop('thruster', true, 0.8);
+  if (D.tutorialDay) tutorial.start();
+  else rovi.say(`Day ${D.day}! Grab glowing supplies. A storm is coming soon.`, { force: true, seconds: 6 });
 }
 
-function land() {
-  player.mode = 'walk'; player.onGround = true; player.vel.set(0, 0, 0);
-  G.phase = 'explore'; G.sol.t = 0;
-  fx.dust(player.pos, 18, 1.5);
-  audio.sfx('land'); audio.loop('thruster', false);
-  rig.extraDistance = 0; rig.shake(0.3);
-  // any bots still in the lander jump now
-  for (const b of bots.bots) if (b.state === 'waiting') bots.jump(b, lander.model.position);
-  feed('Touchdown! Collect supplies before the storm.', 'good');
-  if (!G.sol.tutorialSol) rovi.say('Collect supplies! A REAL [[solar flare]] storm will come soon. Watch the timer at the top.', { force: true });
-}
-
-// ---------------- EXPLORE + STORM ----------------
-function updateExplore(dt) {
-  const M = G.mission, s = G.sol, mod = s.mod;
-  s.t += dt;
-  const info = storm.update(s.t, G.time);
-  hud.zone(info);
-
-  // ----- storm warning (real DONKI flare) -----
-  if (!s.warned && s.t >= storm.schedule.warnAt) {
-    s.warned = true; s.bannerT = 7;
-    const f = storm.flare;
-    hud.stormBanner(f, storm.power, true, `Radiation here is ${storm.radScale}× the Space Station level · NASA OSDR RadLab (archived)`);
-    hud.flareChip(f);
-    audio.sfx('alarm'); rig.shake(0.35);
-    M.learn.storms.push(f);
-    feed(`Storm warning: real <b>${f.class}</b> solar flare (${f.date}) · NASA DONKI`, 'warn');
-    if (!tutorial.active) rovi.say(`A real [[solar flare]] (class ${f.class}) is coming! Get inside the glowing circle and go to the yellow beam: ${storm.shelter.name}.`, { force: true, seconds: 8, mood: 'alert' });
-    if (G.level === 'mars') s.earthQueue.push({ at: s.t + 20, text: `Earth (sent ~20 min ago): "We see a ${f.class} solar flare. Take shelter!" – You already had to decide on your own.` });
+// ================= the game loop for a day =================
+function updateDay(dt) {
+  const M = G.M, D = G.D;
+  // ----- landing -----
+  if (G.phase === 'land') {
+    if (updateDrop(player, dt, input.moveAxis(), rig, world.heightAt, fx)) {
+      player.mode = 'walk'; player.onGround = true; player.vel.set(0, 0, 0);
+      fx.dust(player.pos, 18, 1.5); audio.loop('thruster', false); audio.sfx('land');
+      rig.extraDistance = 0; rig.shake(0.25);
+      G.phase = 'explore';
+    }
+    return;
   }
-  if (s.bannerT > 0) { s.bannerT -= dt; if (s.bannerT <= 0) hud.stormBanner(null, null, false); }
-  // countdown beeps before the zone moves
-  if ((info.stage === 'warning' || info.stage === 'holding') && info.seconds <= 5) {
-    const sec = Math.ceil(info.seconds);
-    if (sec !== s.beepAt) { s.beepAt = sec; audio.sfx(sec <= 1 ? 'bigBeep' : 'beep'); }
-  }
+  D.t += dt;
 
-  // ----- moving: on foot or in a rover -----
+  // ----- moving (frozen / stuck by a card, on foot, or in a rover) -----
+  D.freezeT = Math.max(0, D.freezeT - dt); D.stuckT = Math.max(0, D.stuckT - dt); D.slowT = Math.max(0, D.slowT - dt);
+  player.mods = D.slowT > 0 ? { speedMult: 0.55 } : {};
   if (G.inRover) driveRover(dt);
-  else {
+  else if (D.freezeT <= 0 && D.stuckT <= 0) {
     player.update(dt, rig);
-    if (player.events.includes('step')) { fx.footprint(player.pos, player.facing); if (player.sprinting) fx.dust(player.pos, 1, 0.4); }
+    if (player.events.includes('step')) fx.footprint(player.pos, player.facing);
     if (player.events.includes('land')) { fx.dust(player.pos, 10, 1.1); audio.sfx('land'); }
     if (player.events.includes('jump')) audio.sfx('jump');
   }
-
   collectNearby();
-  updateBarsTick(dt);
 
-  // ----- radiation outside the safe zone -----
-  const outside = !storm.inside(player.pos) && storm.phase > 0;
-  if (outside) {
-    const full = storm.dps() * dt, dmg = full * (mod.stormDamageMult || 1);
-    s.stats.radBlocked += full - dmg; s.stats.radTaken += dmg;
-    change('rad', -dmg, 'storm');
-    s.radAccum += dmg;
-    if (s.radAccum >= 3) { hud.barDelta('rad', -s.radAccum); s.radAccum = 0; }
-    hud.vignette(0.55 + Math.sin(G.time * 6) * 0.25);
-    rig.shake(0.06);
-    s.radWarnT -= dt;
-    if (s.radWarnT <= 0) { s.radWarnT = 3; audio.sfx('beep'); rovi.say('Radiation! You are outside the safe zone. Get back inside the glowing circle!', { key: 'outside', cooldown: 12, mood: 'alert' }); }
-  } else hud.vignette(0);
+  // ----- slow drain: breathing + suit power -----
+  const dr = CONFIG.bars.drainPerSecond;
+  change('power', -(dr.power + (D.dustT > 0 ? 0.06 : 0)) * dt, 'drain');
+  change('life', -dr.life * dt, 'drain');
 
-  // ----- bots, airdrops, hazards -----
-  bots.update(dt, s.t, storm);
-  for (const ev of airdrops.update(dt, s.t, storm)) {
-    if (ev.type === 'incoming') {
-      feed(`Airdrop incoming ${direction(ev.pod.x, ev.pod.z)}! Gold supplies inside.`, 'warn');
-      audio.sfx('whoosh');
-      rovi.say('A supply pod is falling! Great supplies inside – but is the trip worth the time?', { key: 'airdrop', cooldown: 40 });
-    } else if (ev.type === 'landed') {
-      feed('Airdrop landed! Look for the gold diamond on the map.', 'info');
-      if (Math.hypot(ev.pod.x - player.pos.x, ev.pod.z - player.pos.z) < 40) { audio.sfx('impact'); rig.shake(0.25); }
-    }
+  // ----- dangers -----
+  if (!D.active) {
+    const next = D.dangers.find((d) => !d.done && D.t >= d.at);
+    if (next) startDanger(next);
+  } else updateDanger(dt);
+
+  // ----- storm safe zone around the base -----
+  if (D.zoneT > 0) {
+    D.zoneT -= dt;
+    const k = 1 - D.zoneT / T.zone;
+    D.zoneR = THREE.MathUtils.lerp(T.zoneFrom, T.zoneTo, Math.min(1, k * 1.3));
+    zoneRing.visible = true;
+    zoneRing.position.set(0, world.heightAt(0, 0) + 0.3, 0);
+    zoneRing.scale.set(D.zoneR, 14, D.zoneR);
+    const inside = Math.hypot(player.pos.x, player.pos.z) <= D.zoneR;
+    const storm = D.dangers.find((d) => d.type === 'solar_storm');
+    if (!inside && D.stuckT <= 0) {
+      const share = blockShare(storm.card, 'solar_storm');
+      const dps = flareStrength(storm.flare).zone * data.radiation.game_scale[M.level] * (1 - share);
+      change('rad', -dps * dt, 'zone');
+      storm.zoneDamage = (storm.zoneDamage || 0) + dps * dt;
+      hud.vignette(0.85 + Math.sin(G.time * 6) * 0.15);
+      rig.shake(0.05);
+      rovi.say('Radiation! Run back into the dashed safe zone around the base!', { key: 'zone', cooldown: 8, mood: 'alert' });
+    } else hud.vignette(0.55);
+    hud.dangerBanner(stormBannerData(storm, `Stay inside the safe zone · storm ends in ${Math.ceil(D.zoneT)}s`));
+    if (D.zoneT <= 0) { zoneRing.visible = false; hud.dangerBanner(null); hud.stormLook(false); setStormSky(0); hud.vignette(0); endDay(); return; }
   }
-  const next = airdrops.upcoming()[0];
-  if (mod.airdropEarly && next !== undefined && next - s.t <= 10 && s.announcedDrop !== next) { s.announcedDrop = next; feed('Earth tip: an airdrop comes down in 10 seconds!', 'info'); }
-  for (const ev of hazards.update(dt, s.t, player)) handleHazard(ev);
-  if (s.dust > 0) {
-    s.dust -= dt;
-    const k = Math.min(1, s.dust / 3, (30 - s.dust) / 3);
-    setFog(THREE.MathUtils.lerp(60, 10, k), THREE.MathUtils.lerp(quality.fogFar, 75, k));
+
+  // ----- shield bubble -----
+  D.bubbleT = Math.max(0, D.bubbleT - dt);
+  bubble.visible = D.bubbleT > 0;
+  if (bubble.visible) { bubble.position.copy(player.pos).add(new THREE.Vector3(0, 1, 0)); bubble.rotation.y += dt * 0.6; bubble.children[0].material.opacity = 0.18 + Math.sin(G.time * 4) * 0.05; }
+
+  // ----- dust storm look (Mars) -----
+  if (D.dustT > 0) {
+    D.dustT -= dt;
+    const k = Math.min(1, D.dustT / 3, (25 - D.dustT) / 3);
+    scene.fog.near = THREE.MathUtils.lerp(SKY.mars.near, 10, k); scene.fog.far = THREE.MathUtils.lerp(quality.fogFar, 75, k);
     $('dustOverlay').style.opacity = 0.55 * k;
   }
 
-  // ----- buffs -----
-  for (const k in G.buffs) G.buffs[k] = Math.max(0, G.buffs[k] - dt);
+  // ----- airdrops, meteors visuals -----
+  for (const ev of airdrops.update(dt, D.t, { shelter: { x: 0, z: 0 }, r: 120 })) {
+    if (ev.type === 'incoming') { rovi.say('A supply pod is falling! Gold supplies inside!', { key: 'pod', cooldown: 30 }); audio.sfx('whoosh'); }
+    if (ev.type === 'landed' && Math.hypot(ev.pod.x - player.pos.x, ev.pod.z - player.pos.z) < 40) { audio.sfx('impact'); rig.shake(0.25); }
+  }
+  hazards.update(dt, D.t, player);
 
-  // ----- Mars: messages from Earth arrive ~20 minutes late -----
-  if (G.level === 'mars') updateComm(dt);
+  // ----- Mars: Earth's messages arrive ~20 minutes late -----
+  if (M.level === 'mars') updateEarth(dt);
 
-  // ----- prompts + ROVI tips -----
+  // ----- HUD -----
+  if (!D.active && D.zoneT <= 0) {
+    const storm = D.dangers.find((d) => d.type === 'solar_storm');
+    hud.day(`DAY ${D.day} / ${M.total}`, 'Storm in', Math.max(0, storm.at - D.t), storm.at - D.t < 10);
+  }
   updatePrompt();
-  roviTips(info);
+  tutorial.update(dt, { phase: 'explore', moved: player.moved, collected: D.collected, stormStage: D.dangers.some((d) => d.type === 'solar_storm' && (d.active || d.done)) ? 'storm' : 'calm',
+    cardUsed: D.log.some((l) => l.card), inZone: D.zoneT > 0 && Math.hypot(player.pos.x, player.pos.z) <= D.zoneR });
 
-  // ----- tutorial -----
-  tutorial.update(dt, {
-    phase: G.phase, playerMode: G.inLander ? 'lander' : player.mode, moved: player.moved, collected: s.stats.collected,
-    bagOpened: s.bagOpened, used: s.stats.used, droveRover: s.drove, inFinal: storm.inFinal(player.pos), stormStage: storm.stage,
-  });
-
-  // ----- end of the mission or the sol -----
-  const empty = firstEmptyBar();
-  if (empty) { failMission(empty, G.lastCause[empty]); return; }
-  if (s.t >= storm.schedule.endAt) endSol();
+  const empty = emptyBar();
+  if (empty) lose(empty);
 }
 
-function updateBarsTick(dt) {
-  const s = G.sol, mod = s.mod, D = CONFIG.bars.drainPerSecond;
-  const pDrain = D.power * (mod.powerDrainMult || 1) + (mod.powerDrainAdd || 0) + (s.dust > 0 && !mod.dustProof ? 0.08 : 0);
-  const lDrain = D.life * (mod.lifeDrainMult || 1);
-  s.stats.drainSaved += ((D.power - D.power * (mod.powerDrainMult || 1)) + (D.life - lDrain)) * dt;
-  s.stats.cardPowerCost += (mod.powerDrainAdd || 0) * dt;
-  const pRegen = mod.powerRegen || 0;
-  let lRegen = mod.lifeRegen || 0;
-  if (mod.greenhouse && Math.hypot(player.pos.x - 17, player.pos.z + 12) < 35) lRegen += 0.25;   // near the greenhouse
-  s.stats.cardPower += pRegen * dt; s.stats.cardLife += lRegen * dt;
-  change('power', (pRegen - pDrain) * dt, s.dust > 0 ? 'dust' : 'drain');
-  change('life', (lRegen - lDrain) * dt, 'drain');
+// ---------------- dangers + emergency cards ----------------
+function stormBannerData(d, extra) {
+  const f = d.flare;
+  return { type: 'solar_storm', title: 'SOLAR STORM!', sub: `${f.class} solar flare · ${f.date.replace(/^0/, '')}${extra ? ' · ' + extra : ''}`, source: 'Source: NASA CCMC DONKI · archived NASA data' };
 }
-
-function direction(x, z) {
-  const dx = x - player.pos.x, dz = z - player.pos.z;
-  const deg = ((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360;
-  const name = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'][Math.round(deg / 45) % 8];
-  return `${Math.round(Math.hypot(dx, dz))} m ${name}`;
+function bannerFor(d) {
+  if (d.type === 'solar_storm') return stormBannerData(d);
+  const L = data.dangers[d.type].label;
+  const sub = { meteor: 'Tiny space rocks (micrometeoroids) are falling!', power_failure: 'A power unit is failing!', dust_storm: 'Red dust blocks the Sun and clogs the air filters!' }[d.type];
+  return { type: d.type, title: L + '!', sub, source: '' };
 }
+function startDanger(d) {
+  const D = G.D;
+  d.active = true; D.active = d; d.warnT = T.warn;
+  if (G.inRover) toggleRover();
+  hud.dangerBanner(bannerFor(d));
+  hud.useCard(T.warn);
+  $('dayPillWrap') && 0;
+  document.body.classList.add('danger-on');
+  const tags = handTags(D.hand, D.used, d.type);
+  hud.hand(D.hand, D.used, tags, true);
+  audio.sfx('alarm'); rig.shake(0.3);
+  if (d.type === 'solar_storm') { hud.stormLook(true); setStormSky(1); hud.vignette(0.8); G.M.storms.push(d.flare); }
+  else hud.vignette(0.5);
+  const bestIdx = tags.indexOf('best');
+  const best = bestCardsFor(data.cards, G.M.level, d.type)[0];
+  const msg = bestIdx >= 0
+    ? `${d.type === 'solar_storm' ? 'Big storm!' : data.dangers[d.type].label.charAt(0) + data.dangers[d.type].label.slice(1).toLowerCase() + '!'} Press ${bestIdx + 1} for your ${D.hand[bestIdx].title}!`
+    : `${data.dangers[d.type].label.toLowerCase().replace(/^./, (c) => c.toUpperCase())}! You have no ${best.title} card. Use any card for half the help!`;
+  if (!tutorial.active || d.type !== 'solar_storm') rovi.say(msg, { force: true, seconds: 6, mood: 'alert' });
+}
+function updateDanger(dt) {
+  const d = G.D.active;
+  d.warnT -= dt;
+  hud.useCard(d.warnT);
+  if (d.warnT <= 0) resolveDanger(d, null);
+}
+function useCard(i) {
+  const D = G.D;
+  if (!D || !D.active || !D.hand[i] || D.used.has(D.hand[i].id)) return;
+  resolveDanger(D.active, D.hand[i]);
+}
+function resolveDanger(d, card) {
+  const D = G.D, M = G.M;
+  d.active = false; d.done = true; D.active = null;
+  hud.useCard(null);
+  document.body.classList.remove('danger-on');
+  // the card's cost
+  if (card) {
+    D.used.add(card.id);
+    M.cardsUsed[card.id] = (M.cardsUsed[card.id] || 0) + 1;
+    const c = card.cost;
+    for (const k of ['power', 'life', 'rad']) if (c[k]) { change(k, -c[k], 'card'); hud.screenPopup(`−${c[k]} ${k === 'rad' ? 'Shield' : k === 'life' ? 'Life' : 'Power'}`, k, 40); }
+    if (c.stamina) { player.stamina = 0; player.exhausted = true; }
+    if (c.freeze) D.freezeT = c.freeze;
+    if (c.slow) D.slowT = c.slow;
+    if (c.stuck) { D.stuckT = c.stuck; if (G.inRover) toggleRover(); player.placeAt(0, 16.5); }
+    audio.sfx('use');
+  }
+  // the damage (right card = full block, wrong = half, none = full damage)
+  let dmg;
+  if (d.type === 'solar_storm') dmg = { rad: flareStrength(d.flare).hit * data.radiation.game_scale[M.level] };
+  else dmg = { ...DANGER_DAMAGE[d.type] };
+  const share = blockShare(card, d.type);
+  const right = card ? isRight(card, d.type) : false;
+  let saved = 0, taken = 0;
+  for (const k in dmg) {
+    const s = dmg[k] * share, t = dmg[k] - s;
+    saved += s; taken += t;
+    change(k, -t, d.type);
+    if (t >= 1) hud.screenPopup(`−${Math.round(t)} ${k === 'rad' ? 'Shield' : k === 'life' ? 'Life' : 'Power'}`, 'hit-' + k);
+  }
+  d.card = card; d.saved = saved; d.taken = taken; d.right = right;
+  D.log.push({ type: d.type, card, right, saved, taken, flare: d.flare, bars: Object.keys(dmg) });
+  G.lastHit = { type: d.type, flare: d.flare, card, right };
+  // feedback + effects
+  const best = bestCardsFor(data.cards, M.level, d.type)[0];
+  if (!card) rovi.say(`Ouch, no card! Next time press 1, 2 or 3. ${best.title} works best for this.`, { force: true, seconds: 6, mood: 'alert' });
+  else if (right) rovi.say(`Great choice! ${card.title} blocked ${Math.round(saved)} damage.`, { force: true, seconds: 5 });
+  else rovi.say(`${card.title} only helped a little. For a ${data.dangers[d.type].name}, ${best.title} works best!`, { force: true, seconds: 7, mood: 'alert' });
+  if (right) audio.sfx('safe'); else audio.sfx('impact');
+  rig.shake(card && right ? 0.2 : 0.6);
+  if (card && ['radiation_shield', 'water_wall', 'storm_shelter'].includes(card.id)) D.bubbleT = d.type === 'solar_storm' ? T.zone : 3;
+  if (card && card.id === 'duck_cover') D.bubbleT = card.cost.freeze;
+  if (d.type === 'meteor') hazards.shower(player.pos);
+  if (d.type === 'dust_storm') D.dustT = 25;
+  if (d.type === 'solar_storm') {
+    D.zoneT = T.zone;
+    hud.vignette(0.6);
+  } else {
+    setTimeout(() => { if (G.D === D && !D.active && D.zoneT <= 0) { hud.dangerBanner(null); hud.vignette(0); } }, 1800);
+  }
+  hud.hand(D.hand, D.used, null, false);
+}
+function hideDanger() { hud.dangerBanner(null); hud.useCard(null); hud.vignette(0); hud.stormLook(false); zoneRing.visible = false; bubble.visible = false; document.body.classList.remove('danger-on'); $('dustOverlay').style.opacity = 0; }
 
-function handleHazard(ev) {
-  if (ev.type === 'meteorWarn') {
-    audio.sfx('alarm');
-    rovi.say('Tiny space rocks (micrometeoroids) are falling! Step out of the red rings!', { force: !tutorial.active, mood: 'alert' });
-    feed('Micrometeoroid shower near you – avoid the red rings!', 'warn');
-  } else if (ev.type === 'impact') {
-    audio.sfx('impact');
-    if (ev.near) { change('life', -5, 'meteor', true); rig.shake(0.7); feed('A micrometeoroid hit near you! Suit patched: −5 Life Support', 'bad'); }
-    else if (ev.dist < 18) rig.shake(0.2);
-  } else if (ev.type === 'glitch') {
-    const amt = ev.bar === 'power' ? 6 : 5;
-    change(ev.bar, -amt, 'glitch', true);
-    feed(`Equipment glitch: ${ev.bar === 'power' ? 'a suit battery' : 'a water filter'} lost ${amt} ${BAR_NAMES[ev.bar]}.`, 'bad');
-    audio.sfx('full');
-  } else if (ev.type === 'dustStart') {
-    G.sol.dust = 30;
-    feed('Dust storm! Hard to see, and solar power is weaker.', 'warn');
-    rovi.say('Dust storm! It is hard to see, and dust drains your Power. Use your map to find the way.', { force: !tutorial.active, mood: 'alert' });
+// ---------------- Mars: late Earth messages ----------------
+function updateEarth(dt) {
+  const D = G.D, M = G.M;
+  D.snapT -= dt;
+  if (D.snapT <= 0) { D.snapT = 1; D.snapshots.push({ ...M.bars }); if (D.snapshots.length > 30) D.snapshots.shift(); }
+  D.earthT -= dt;
+  if (D.earthT <= 0 && D.snapshots.length >= 20 && !D.active) {
+    D.earthT = 30;
+    const old = D.snapshots[D.snapshots.length - 20];
+    rovi.say(`Earth (sent ~20 min ago): "Your Power was ${Math.round(old.power)}. Good luck!" Old news – check your own bars!`, { key: 'earth', cooldown: 25, seconds: 7 });
   }
 }
 
-function updateComm(dt) {
-  const s = G.sol, M = G.mission;
-  s.snapT -= dt;
-  if (s.snapT <= 0) { s.snapT = 1; s.snapshots.push({ ...M.bars }); if (s.snapshots.length > 30) s.snapshots.shift(); }
-  s.earthT -= dt;
-  if (s.earthT <= 0 && s.snapshots.length >= 20) {
-    s.earthT = 28;
-    const old = s.snapshots[s.snapshots.length - 20];
-    s.earthQueue.push({ at: s.t, text: `Earth (sent ~20 min ago): "Last we saw, your Power was ${Math.round(old.power)}, Life Support ${Math.round(old.life)}, Radiation Safety ${Math.round(old.rad)}. Good luck!" – Old news! Check your own bars.` });
+// ---------------- loot: instant effect + floating "+10 Life" ----------------
+function collectNearby() {
+  const D = G.D;
+  for (const it of loot.near(player.pos, G.inRover ? 2.8 : CONFIG.loot.pickupRadius)) {
+    const T2 = LOOT_TYPES[it.type];
+    loot.remove(it);
+    const pos = new THREE.Vector3(it.x, it.y + 2.2, it.z);
+    fx.sparkle(pos, it.rarity.color);
+    audio.sfx('pickup', RARITY.indexOf(it.rarity));
+    D.collected++; D.points += it.rarity.points;
+    if (T2.effect) {
+      let off = 0;
+      for (const k in T2.effect) {
+        const amt = Math.round(T2.effect[k] * it.rarity.mult);
+        change(k, amt, 'loot');
+        hud.popup(`+${amt} ${k === 'rad' ? 'Shield' : k === 'life' ? 'Life' : 'Power'}`, k, pos.clone().add(new THREE.Vector3(0, off, 0)), camera);
+        off += 0.8;
+      }
+    } else if (T2.buff === 'speed') { player.speedBoost = T2.seconds * it.rarity.mult; hud.popup('Speed boots!', 'power', pos, camera); }
+    else if (T2.buff === 'scanner') { D.scannerT = T2.seconds * it.rarity.mult; hud.popup('Scanner!', 'life', pos, camera); }
   }
-  while (s.earthQueue.length && s.earthQueue[0].at <= s.t) {
-    const m = s.earthQueue.shift();
-    $('commMsg').textContent = m.text;
-    feed('Message from Earth arrived (~20 min late).', 'info');
-    M.learn.delayMsgs++;
-  }
-}
-
-function updatePrompt() {
-  let text = null;
-  if (G.promptMsg && G.time < G.promptUntil) text = G.promptMsg;
-  else if (G.inRover) text = '<kbd>E</kbd> Get out of the rover · driving uses Power';
-  else {
-    const r = rovers.nearest(player.pos, 4);
-    if (r) text = '<kbd>E</kbd> Drive the rover (fast, but uses Power)';
-  }
-  const safe = storm.stage !== 'calm' && storm.inFinal(player.pos);
-  if (safe && !text) text = 'You are in the shelter zone! <kbd>F</kbd> Fast-forward the storm';
-  $('ffBtn').hidden = !safe;
-  hud.prompt(text);
-}
-
-function roviTips(info) {
-  if (tutorial.active) return;
-  const M = G.mission;
-  for (const k of ['power', 'life', 'rad']) {
-    if (M.bars[k] < 25) {
-      const hint = { power: 'Use a battery or solar panel, and drive less.', life: 'Use an ice chunk or an oxygen tank.', rad: 'Use a shield plate and stay inside the safe zone.' }[k];
-      rovi.say(`Your ${BAR_NAMES[k]} is low! ${hint}`, { key: 'low' + k, cooldown: 30, mood: 'alert' });
-    }
-  }
-  if (info.stage === 'holding' && info.seconds < 10 && Math.hypot(player.pos.x - storm.shelter.x, player.pos.z - storm.shelter.z) > storm.nextR) {
-    rovi.say('The safe zone will shrink soon – move toward the shelter!', { key: 'shrink', cooldown: 25 });
-  }
-  if (G.inRover && M.bars.power < 30) rovi.say('Careful: driving is using your Power. Park the rover if Power gets low!', { key: 'roverpower', cooldown: 30 });
+  if (D.scannerT) D.scannerT = Math.max(0, D.scannerT - 1 / 60);
 }
 
 // ---------------- rover ----------------
 function toggleRover() {
   if (G.inRover) {
-    const r = G.inRover;
-    r.driven = false; G.inRover = null;
-    const side = new THREE.Vector3(Math.cos(r.yaw) * 2.8, 0, -Math.sin(r.yaw) * 2.8);
-    player.placeAt(r.pos.x + side.x, r.pos.z + side.z);
-    pushOut(player.pos, world.colliders);
-    player.pos.y = world.heightAt(player.pos.x, player.pos.z);
-    player.mode = 'walk';
-    rig.extraDistance = 0;
+    const r = G.inRover; r.driven = false; G.inRover = null;
+    player.placeAt(r.pos.x + Math.cos(r.yaw) * 2.8, r.pos.z - Math.sin(r.yaw) * 2.8);
+    pushOut(player.pos, world.colliders); player.pos.y = world.heightAt(player.pos.x, player.pos.z);
+    player.mode = 'walk'; rig.extraDistance = 0;
     audio.loop('rover', false); audio.sfx('enter');
     return;
   }
+  if (G.D.active || G.D.stuckT > 0 || G.D.freezeT > 0) return;
   const r = rovers.nearest(player.pos, 4);
   if (!r) return;
-  if (G.mission.bars.power < 3) { rovi.say('Not enough Power to drive! Find a battery first.', { force: true, mood: 'alert' }); return; }
-  G.inRover = r; r.driven = true; player.mode = 'rover'; G.sol.drove = true;
-  rig.extraDistance = 5;
+  if (G.M.bars.power < 3) { rovi.say('Not enough Power to drive!', { force: true, mood: 'alert' }); return; }
+  G.inRover = r; r.driven = true; player.mode = 'rover'; rig.extraDistance = 5;
   audio.loop('rover', true, 0.6); audio.sfx('enter');
   rovi.say('Rovers are fast, but driving uses Power. Watch your Power bar!', { key: 'roverhint', cooldown: 120 });
 }
 function driveRover(dt) {
-  const r = G.inRover, s = G.sol, mod = s.mod;
-  const res = rovers.drive(r, input.moveAxis(), dt, { canUsePower: G.mission.bars.power > 0.5, speedMult: mod.roverSpeed || 1, powerMult: mod.roverPowerMult || 1 });
+  const r = G.inRover;
+  const res = rovers.drive(r, input.moveAxis(), dt, { canUsePower: G.M.bars.power > 0.5, speedMult: 1, powerMult: 1 });
   change('power', -res.used, 'rover');
-  G.mission.learn.roverPower += res.used;
-  s.stats.roverMeters += res.moved;
   player.pos.copy(r.pos); player.facing = r.yaw;
   audio.roverSpeed(Math.min(1, Math.abs(r.speed) / CONFIG.rover.maxSpeed));
   if (res.bump) { rig.shake(0.45); audio.sfx('impact'); }
-  if (Math.abs(r.speed) > 10 && Math.random() < 0.3) fx.dust(r.pos, 1, 0.6);
 }
 
-// ---------------- loot + backpack ----------------
-function collectNearby() {
-  const s = G.sol;
-  for (const it of loot.near(player.pos, G.inRover ? 2.8 : CONFIG.loot.pickupRadius)) {
-    const T = LOOT_TYPES[it.type];
-    const pos = new THREE.Vector3(it.x, it.y + 1.5, it.z);
-    if (T.bag) {
-      loot.remove(it); backpack.bonus += 2; backpack.resize();
-      hud.popup('+2 backpack slots!', it.rarity.color, pos, camera);
-      feed('Backpack upgrade: +2 slots for this sol', 'good');
-      audio.sfx('pickup', 2); fx.sparkle(pos, it.rarity.color);
-      hud.quickslots(backpack); if (G.bagOpen) renderBag();
-      continue;
-    }
-    if (backpack.add({ type: it.type, rarity: it.rarity }) < 0) {
-      if (G.time - (s.fullT || -9) > 3) {
-        s.fullT = G.time; audio.sfx('full');
-        G.promptMsg = 'Backpack full! <kbd>Tab</kbd> to use or drop something'; G.promptUntil = G.time + 2.5;
-        rovi.say('Your backpack is full! Use or drop something – you can\'t carry everything.', { key: 'full', cooldown: 30 });
-      }
-      continue;
-    }
-    loot.remove(it);
-    s.stats.collected++; s.stats.points += it.rarity.points; G.mission.learn.supplies++;
-    G.combo = G.time - G.lastPickup < CONFIG.loot.comboWindow ? G.combo + 1 : 1;
-    G.lastPickup = G.time;
-    hud.combo(G.combo);
-    if (G.combo >= 3) s.stats.points += 1;   // small combo bonus
-    fx.sparkle(pos, it.rarity.color);
-    audio.sfx('pickup', RARITY.indexOf(it.rarity));
-    hud.popup(T.label, it.rarity.color, pos, camera);
-    if (it.airdrop) feed(`You got an airdrop supply: ${it.rarity.label} ${T.label}!`, 'good');
-    else if (it.rarity.points >= 3) feed(`You found a <b style="color:${it.rarity.color}">${it.rarity.label}</b> ${T.label}!`, 'good');
-    hud.quickslots(backpack);
-    if (G.bagOpen) renderBag();
-  }
+function updatePrompt() {
+  let text = null;
+  if (G.D.stuckT > 0) text = `Safe inside the storm shelter · ${Math.ceil(G.D.stuckT)}s`;
+  else if (G.D.freezeT > 0) text = `Ducking for cover · ${Math.ceil(G.D.freezeT)}s`;
+  else if (G.inRover) text = '<kbd>E</kbd> Get out of the rover · driving uses Power';
+  else if (rovers.nearest(player.pos, 4) && !G.D.active) text = '<kbd>E</kbd> Drive the rover (uses Power)';
+  hud.prompt(text);
 }
 
-function useSlot(i) {
-  if (G.phase !== 'explore' || G.paused) return;
-  const it = backpack.slots[i];
-  if (!it) return;
-  const T = LOOT_TYPES[it.type], L = G.mission.learn;
-  backpack.take(i);
-  if (T.effect) {
-    for (const k in T.effect) {
-      const amt = Math.round(T.effect[k] * it.rarity.mult);
-      change(k, amt, 'item', true);
-      if (k === 'power') L.powerItems++;
-      if (k === 'life') L.lifeItems++;
-    }
-    if (it.type === 'shield') L.shieldUsed++;
-  }
-  if (T.buff) {
-    G.buffs[T.buff] = T.seconds * it.rarity.mult;
-    if (T.buff === 'speed') player.speedBoost = G.buffs.speed;
-    feed(`${T.label} on for ${Math.round(G.buffs[T.buff])} s`, 'good');
-  }
-  G.sol.stats.used++;
-  audio.sfx('use');
-  hud.quickslots(backpack);
-  if (G.bagOpen) { G.bagSel = null; renderBag(); }
-}
-
-function renderBag() { hud.renderBag(backpack, G.bagSel); }
-function toggleBag() {
-  if (G.phase !== 'explore' || G.paused) return;
-  G.bagOpen = !G.bagOpen; G.bagSel = null;
-  $('bagScreen').hidden = !G.bagOpen;
-  if (G.bagOpen) { G.sol.bagOpened = true; renderBag(); audio.sfx('click'); }
-}
-function closeBag() { G.bagOpen = false; G.bagSel = null; $('bagScreen').hidden = true; }
-$('bagGrid').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-bslot]'); if (!b) return;
-  const i = +b.dataset.bslot;
-  if (G.bagSel === null) { if (backpack.slots[i]) G.bagSel = i; }
-  else if (G.bagSel === i) G.bagSel = null;
-  else { backpack.swap(G.bagSel, i); G.bagSel = null; audio.sfx('click'); hud.quickslots(backpack); }
-  renderBag();
-});
-$('bagDetail').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-bag]'); if (!b || G.bagSel === null) return;
-  if (b.dataset.bag === 'use') useSlot(G.bagSel);
-  else {
-    const it = backpack.take(G.bagSel);
-    const f = rig.forward();
-    loot.spawn(it.type, it.rarity, player.pos.x + f.x * 3, player.pos.z + f.z * 3);
-    audio.sfx('drop');
-    G.bagSel = null; hud.quickslots(backpack); renderBag();
-  }
-});
-$('bagClose').addEventListener('click', closeBag);
-$('bagBtn').addEventListener('click', toggleBag);
-$('quickslots').addEventListener('click', (e) => { const b = e.target.closest('[data-slot]'); if (b) useSlot(+b.dataset.slot); });
-
-// ---------------- fast-forward when safe ----------------
-function fastForward() {
-  const s = G.sol;
-  if (G.phase !== 'explore' || storm.stage === 'calm' || !storm.inFinal(player.pos)) return;
+// ================= NIGHT REPORT =================
+function endDay() {
+  const M = G.M, D = G.D;
+  if (D.over) return;
+  D.over = true;
   if (G.inRover) toggleRover();
-  audio.sfx('safe');
-  while (s.t < storm.schedule.endAt) {
-    const step = 0.5;
-    s.t += step;
-    storm.update(s.t, G.time);
-    bots.update(step, s.t, storm);
-    updateBarsTick(step);
-  }
-}
-
-// ---------------- END OF SOL: night report ----------------
-function endSol() {
-  const M = G.mission, s = G.sol, mod = s.mod;
-  if (s.ended) return;
-  s.ended = true;
-  if (G.inRover) toggleRover();
-  endLoops(); closeBag(); tutorial.stop();
-  G.phase = 'report';
-  const before = { ...s.startBars };
-  const safe = storm.inFinal(player.pos);
-  let penalty = 0;
-  if (safe) M.learn.safeCount++;
-  else {
-    penalty = Math.round(10 * storm.power.damage * storm.radScale * (mod.stormDamageMult || 1));
-    change('rad', -penalty, 'caught');
-    s.stats.radTaken += penalty;
-  }
-  // supplies still in the backpack are delivered to the base
-  const delivered = [];
-  for (const it of backpack.items()) {
-    const T = LOOT_TYPES[it.type];
-    if (T.effect) for (const k in T.effect) change(k, Math.round(T.effect[k] * it.rarity.mult), 'item');
-    delivered.push({ color: it.rarity.color, label: `${it.rarity.label} ${T.label}`, effect: T.effect ? describeItem(it.type, it.rarity) : 'kept for science (+XP)' });
-    s.stats.points += T.effect ? 0 : 1;
-  }
-  backpack.clearAll();
+  endLoops(); tutorial.stop(); hideDanger();
   const night = CONFIG.bars.night;
   change('power', -night.power, 'night'); change('life', -night.life, 'night');
+  const empty = emptyBar();
+  if (empty) { lose(empty); return; }
+  if (D.tutorialDay) { save.data.tutorialDone = true; M.tutorial = false; }
   const after = { ...M.bars };
-
-  // crew race
-  const board = [{ name: `You (${save.data.name || 'Commander'})`, color: suitColor(), points: s.stats.points, home: safe, you: true },
-    ...bots.bots.map((b) => ({ name: b.name, color: b.color, points: b.points, home: b.arrivedAt !== null }))]
-    .sort((a, b) => (b.home - a.home) || (b.points - a.points));
-  const place = board.findIndex((b) => b.you) + 1;
-  M.learn.bestPlace = Math.min(M.learn.bestPlace, place);
-
-  // XP
-  const xpLines = [`Supplies: ${s.stats.points} points × 10 = ${s.stats.points * 10}`];
-  let xp = s.stats.points * 10;
-  if (safe) { xp += 100; xpLines.push('Reached the shelter: +100'); }
-  const placeXp = (5 - place) * 25; if (placeXp > 0) { xp += placeXp; xpLines.push(`Crew race place #${place}: +${placeXp}`); }
-  if (s.card.effects.score > 0) { xp += s.card.effects.score * 5; xpLines.push(`Science from your card: +${s.card.effects.score * 5}`); }
-  if (mod.xpMult) { xp = Math.round(xp * mod.xpMult); xpLines.push(`Card bonus: ×${mod.xpMult}`); }
-  const { rankUp, unlocks } = addXp(xp);
-  M.xp += xp;
-  if (s.tutorialSol) { save.data.tutorialDone = true; save.write(); }
-  M.history.push({ sol: M.sol, card: s.card.title, flare: storm.flare, safe, place });
-
-  const empty = firstEmptyBar();
-  const f = storm.flare;
-  const r = {
-    sol: M.sol, total: M.total, safe, before, after, night, flare: f, stats: s.stats, card: s.card, cardLines: cardReport(s.card, s.stats),
-    delivered, board, place, xp, xpLines, rankUp, unlocks, fact: nextFact(), failed: !!empty, last: M.sol >= M.total,
-    summary: safe ? `You reached ${storm.shelter.name} before the ${f.class} solar storm peaked. The crew is safe for the night.`
-      : `The ${f.class} storm caught you outside the shelter. The rover team brought you back, but you took ${penalty} radiation.`,
-  };
-  $('hud').hidden = true; hud.vignette(0);
-  player.mode = 'hidden'; player.model.visible = false;
-  rig.menuOrbit = true; rig.extraDistance = 48; rig.pitch = 0.3;
-  audio.sfx(safe ? 'safe' : 'lose');
-  screens.showReport(r, { next: () => (empty ? endMission(false, { bar: empty, cause: G.lastCause[empty] }) : r.last ? endMission(true) : nextSol()) });
-}
-
-function addXp(xp) {
-  const d = save.data, oldXp = d.xp;
-  const oldRank = rankFor(oldXp);
-  d.xp += xp; save.write();
-  const newRank = rankFor(d.xp);
-  const unlocks = [];
-  SUITS.forEach((s) => { if (oldXp < s.xp && d.xp >= s.xp) unlocks.push(`${s.label} suit colour`); });
-  ROVER_SKINS.forEach((s) => { if (oldXp < s.xp && d.xp >= s.xp) unlocks.push(`${s.label} rover skin`); });
-  BACKPACK_UNLOCKS.forEach((x, i) => { if (i > 0 && oldXp < x && d.xp >= x) unlocks.push(`Backpack level ${i + 1}`); });
-  if (newRank.id !== oldRank.id) audio.sfx('levelup');
-  return { rankUp: newRank.id !== oldRank.id ? newRank.label : null, unlocks };
+  // stars: survived · right card for every danger · all bars at 50+
+  const allRight = D.log.every((l) => l.right);
+  const healthy = Object.values(after).every((v) => v >= 50);
+  const stars = 1 + (allRight ? 1 : 0) + (healthy ? 1 : 0);
+  const why = ['Survived the day', allRight ? 'Right card for every danger' : null, healthy ? 'All bars at 50 or more' : null].filter(Boolean).join(' · ');
+  const xp = 40 + stars * 20 + D.points * 5;
+  M.xp += xp; save.data.xp += xp; save.data.stars += stars; save.write();
+  // card panel: the storm's card
+  const storm = D.log.find((l) => l.type === 'solar_storm');
+  const others = D.log.filter((l) => l !== storm);
+  const best = bestCardsFor(data.cards, M.level, 'solar_storm')[0];
+  const card = storm.card
+    ? { title: storm.card.title, good: storm.right,
+        html: `Saved <span class="num">${Math.round(storm.saved)}</span> Radiation Safety from the ${esc(storm.flare.class)} storm.`,
+        verdict: storm.right ? 'Right card for this danger!' : `Half effect – ${best.title} is better for storms.` }
+    : { title: 'No card', good: false, html: `You took the full ${esc(storm.flare.class)} storm (−${Math.round(storm.taken)} Radiation Safety).`, verdict: 'Next time, use a shield card!' };
+  card.extra = others.map((l) => l.card ? `Also: ${l.card.title} saved ${Math.round(l.saved)} from the ${data.dangers[l.type].name}.` : `Also: the ${data.dangers[l.type].name} hit with no card (−${Math.round(l.taken)}).`).join(' ');
+  G.phase = 'night';
+  $('hud').hidden = true;
+  player.mode = 'hidden';
+  audio.sfx('safe');
+  const last = M.day >= M.total;
+  screens.showNight({
+    day: M.day, total: M.total, title: stars === 3 ? 'PERFECT DAY!' : 'YOUR CREW IS SAFE!', stars, starsWhy: why,
+    before: D.startBars, after, card, fact: nextFact(), last,
+  }, {
+    next: () => { audio.sfx('click'); last ? win() : nextDay(); },
+    saveQuit: () => {
+      save.data.inProgress = { level: M.level, day: M.day + 1, bars: { ...M.bars }, usedFlares: [...M.usedFlares], xp: M.xp, cardsUsed: M.cardsUsed, storms: M.storms };
+      save.write();
+      goLobby(M.level);
+    },
+  });
 }
 
 function nextFact() {
-  const M = G.mission;
+  const M = G.M;
   const pool = data.facts.map((f) => ({ text: f.text, source: f.source, link: f.source_link }));
   const R = data.radiation, iss = R.places.iss.median_uGy_per_hour;
   const ratio = (k) => (R.places[k].median_uGy_per_hour / iss).toFixed(1);
   pool.push({ text: `NASA detectors measured radiation near the Moon (LRO spacecraft) and on the Space Station. Near the Moon it was about ${ratio('moon')} times more!`, source: 'NASA OSDR RadLab', link: R.source_link });
   pool.push({ text: `NASA's Curiosity rover measures radiation on Mars. It was about ${ratio('mars_surface')} times more than on the Space Station.`, source: 'NASA OSDR RadLab', link: R.source_link });
-  pool.push({ text: `Far out in deep space, NASA's BioSentinel measured about ${ratio('deep_space')} times more radiation than the Space Station.`, source: 'NASA OSDR RadLab', link: R.source_link });
   let options = pool.filter((p) => !M.usedFacts.has(p.text));
   if (!options.length) { M.usedFacts.clear(); options = pool; }
   const f = options[Math.floor(Math.random() * options.length)];
@@ -795,198 +725,165 @@ function nextFact() {
   return f;
 }
 
-// ---------------- MISSION FAILED / COMPLETE ----------------
-function failMission(bar, cause) {
-  if (G.phase === 'end') return;
-  if (G.inRover) toggleRover();
-  endLoops(); closeBag(); tutorial.stop();
-  G.phase = 'end';
-  endMission(false, { bar, cause });
-}
-
-function reasonFor(fail) {
-  const f = storm && storm.flare;
-  const { bar, cause } = fail;
-  if (bar === 'rad') {
-    if (cause === 'caught' && f) return `You were caught outside the shelter when the real ${f.class} solar storm of ${f.date} peaked.`;
-    if (f) return `Your Radiation Safety ran out outside the safe zone during a real ${f.class} solar flare (${f.date}).`;
-    return 'Your Radiation Safety ran out.';
-  }
-  if (bar === 'power') {
-    if (cause === 'rover') return 'Your Power ran out – driving the rover used a lot of it.';
-    if (cause === 'card') return 'Your Power ran out because the plan card cost more Power than you had left.';
-    return 'Your Power ran out: the suits and the base used more than you collected.';
-  }
-  if (cause === 'meteor') return 'Your Life Support ran out after a micrometeoroid hit your suit.';
-  if (cause === 'card') return 'Your Life Support ran out because the plan card cost more than you had left.';
-  return 'Your Life Support ran out: the crew needs air, water and food every second.';
-}
-const TIPS = {
-  power: 'Tip: pick up batteries and solar panels, drive less, or choose a Power card like "Fix the solar panels".',
-  life: 'Tip: collect ice and oxygen tanks, and try cards like "Grow vegetables" or "Recycle water".',
-  rad: 'Tip: watch the storm timer and head to the shelter early. Shield plates and shield cards help!',
-};
-function flareStrength(c) { const o = { X: 3, M: 2, C: 1 }; return (o[c.charAt(0)] || 0) * 100 + (parseFloat(c.slice(1)) || 0); }
-const sci = (id) => (data.cards.find((c) => c.id === id) || {}).science || '';
-
-function endMission(won, fail = null) {
-  const M = G.mission, L = M.learn;
-  G.phase = 'end';
-  endLoops(); $('hud').hidden = true;
-  player.mode = 'hidden'; player.model.visible = false;
-  rig.menuOrbit = true; rig.extraDistance = 48; rig.pitch = 0.3;
-  const solsDone = won ? M.total : M.sol;
-  const solsSurvived = won ? M.total : M.sol - 1;
-  let marsUnlocked = false;
-  if (won) {
-    const bonus = 300; M.xp += bonus; addXp(bonus);
-    if (M.level === 'moon') { marsUnlocked = !save.data.moonWon; save.data.moonWon = true; } else save.data.marsWon = true;
-  }
+// ================= WIN =================
+function win() {
+  const M = G.M;
+  M.xp += 200; save.data.xp += 200;
+  if (M.level === 'moon') save.data.moonWon = true; else save.data.marsWon = true;
   save.data.missions++; save.write();
-  const levelName = M.level === 'mars' ? 'Mars' : 'Moon';
-  const reason = won ? `You kept the crew safe for all ${M.total} sols on the ${levelName}!` : reasonFor(fail);
-  const mars = M.level === 'mars';
-  const learning = [
-    { icon: 'power', title: 'Power budget', good: L.minPower > 25,
-      text: `Lowest Power: ${Math.round(L.minPower)}. You used ${Math.round(L.roverPower)} Power driving rovers and picked ${L.powerCards} Power card(s). ${L.minPower > 25 ? 'Great energy planning!' : 'Every action costs Power – collect batteries before you drive far.'}` },
-    { icon: 'rad', title: 'Radiation shielding', good: L.safeCount >= Math.max(1, solsDone - 1) * 0.75,
-      text: `You reached the shelter in ${L.safeCount} of ${L.storms.length} real solar storms and used ${L.shieldUsed} shield plate(s). You picked ${L.shieldCards} shielding card(s).` },
-    { icon: 'life', title: 'Life support & food', good: L.minLife > 25,
-      text: `Lowest Life Support: ${Math.round(L.minLife)}. You chose ${L.foodCards} food/water/air card(s) and used ${L.lifeItems} life-support supplies.` },
-    mars
-      ? { icon: 'radio', title: 'Communication delay', good: true, text: `Earth's messages arrived about 20 minutes late ${L.delayMsgs} time(s), so you made your own decisions – just like a real Mars crew.` }
-      : { icon: 'radio', title: 'Communication delay', good: false, text: 'On the Moon, radio signals take only about 1.3 seconds. On Mars a message takes 3 to 22 minutes one way – win the Moon and try Mars to practise deciding alone!' },
-  ];
-  const src = (card) => `Real science from the plan card "${(data.cards.find((c) => c.id === card) || {}).title}" (data/cards.json)`;
-  const debrief = [
-    { good: L.safeCount === L.storms.length && L.storms.length > 0, text: (L.safeCount === L.storms.length ? 'You reached shelter in every storm. ' : 'Get to shelter early when a flare is coming. ') + sci('storm_shelter'), source: src('storm_shelter') },
-    { good: L.shieldUsed >= 2, text: (L.shieldUsed >= 2 ? 'You used shield plates. ' : 'Use more shielding. ') + sci('shield_wall'), source: src('shield_wall') },
-    { good: L.minLife > 30, text: sci('recycle_water') + ' ' + sci('veg'), source: src('recycle_water') },
-    { good: L.minPower > 30, text: sci('fix_solar') + ' ' + sci('nuclear'), source: src('nuclear') },
-    mars ? { good: true, text: sci('send_video'), source: src('send_video') } : { good: true, text: sci('call_earth'), source: src('call_earth') },
-  ];
-  const big = L.storms.slice().sort((a, b) => flareStrength(b.class) - flareStrength(a.class))[0] || null;
-  const name = (save.data.name || 'Commander').toUpperCase();
-  const fact = nextFact();
-  const r = {
-    level: M.level, levelName, solsDone, total: M.total, won, reason, tip: won ? null : TIPS[fail.bar],
-    rank: rankFor(save.data.xp).label, totalXp: save.data.xp, missionXp: M.xp, marsUnlocked, learning, debrief,
-    paper: {
-      level: M.level, levelName, solsDone, total: M.total, name: save.data.name || 'Commander', rank: rankFor(save.data.xp).label,
-      headline: won ? `COMMANDER ${name} KEEPS ${levelName.toUpperCase()} CREW SAFE FOR ${M.total} SOLS!` : `${name}'S ${levelName.toUpperCase()} CREW HOLDS ON FOR ${solsSurvived} SOLS`,
-      stats: [[`${solsSurvived}/${M.total}`, 'Sols survived'], [String(L.supplies), 'Supplies collected'], [String(L.storms.length), 'Real storms faced'], [L.bestPlace < 9 ? `#${L.bestPlace}` : '–', 'Best crew place']],
-      story: reason, biggestFlare: big, fact, suitColor: suitColor(), roverColor: roverColor(),
-    },
+  G.phase = 'win';
+  const rank = rankFor(save.data.xp);
+  const used = Object.entries(M.cardsUsed).sort((a, b) => b[1] - a[1]).map(([id]) => (data.cards.find((c) => c.id === id) || {}).title).filter(Boolean);
+  const big = M.storms.slice().sort((a, b) => strength(b.class) - strength(a.class))[0];
+  const title = M.level === 'mars' ? 'The Mars Times' : 'The Moon Times';
+  const paper = {
+    title, level: M.level, edition: M.level === 'mars' ? 'MARS BASE EDITION' : 'MOON BASE EDITION', day: M.total,
+    headline: `${displayName()} keeps the crew safe for ${M.total} days!`, suitColor: suitColor(),
+    story: `The young commander used ${used.length ? listWords(used.slice(0, 3).map((u) => u.toLowerCase() + 's')) : 'smart choices'} to protect the crew from real solar storms recorded by NASA.${big ? ` The biggest was a class ${big.class} flare from ${big.date.replace(/^0/, '')}.` : ''} All ${M.total} days, the power stayed on and the crew stayed healthy. Storm data: NASA CCMC DONKI (archived NASA data).`,
   };
-  audio.sfx(won ? 'win' : 'lose');
-  screens.showEnd(r, {
-    mission: (lvl) => startMission(lvl),
-    menu: goMenu,
-    download: () => downloadCanvas($('paper'), save.data.name),
+  audio.sfx('win');
+  screens.showWin({ total: M.total, rank: rank.label, rankUp: rank.id !== M.startRank, level: M.level, paperTitle: title }, {
+    next: () => goLobby(M.level === 'moon' ? 'mars' : M.level),
+    download: () => downloadCanvas($('paper'), save.data.name, title),
+  });
+  const cv = $('paper');
+  const draw = () => drawNewspaper(cv, paper);
+  draw();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+}
+const strength = (c) => ({ X: 3, M: 2, C: 1 }[c.charAt(0)] || 0) * 100 + (parseFloat(c.slice(1)) || 0);
+const listWords = (a) => (a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
+
+// ================= LOSE =================
+function lose(bar) {
+  const M = G.M, D = G.D;
+  if (G.phase === 'lose') return;
+  if (G.inRover) toggleRover();
+  endLoops(); tutorial.stop(); hideDanger();
+  G.phase = 'lose';
+  $('hud').hidden = true; player.mode = 'hidden';
+  save.data.inProgress = null; save.write();
+  const cause = M.lastCause[bar];
+  const hit = G.lastHit;
+  let happened, saveHtml, source = '';
+  const names = (type) => bestCardsFor(data.cards, M.level, type).slice(0, 2).map((c) => `<b>${esc(c.title)}</b>`).join(' or ');
+  if (bar === 'rad' && (cause === 'solar_storm' || cause === 'zone') && hit && hit.flare) {
+    const f = hit.flare, sizeWord = f.class.charAt(0) === 'X' ? 'huge' : f.class.charAt(0) === 'M' ? 'big' : 'small';
+    if (cause === 'zone') happened = `You stayed outside the safe zone during the <b>${esc(f.class)} solar storm</b>. Radiation Safety reached 0.`;
+    else if (!hit.card) happened = `A ${sizeWord} <b>${esc(f.class)} solar storm</b> hit and you had no shield card. Radiation Safety reached 0.`;
+    else if (!hit.right) happened = `A ${sizeWord} <b>${esc(f.class)} solar storm</b> hit and your ${esc(hit.card.title)} only helped a little. Radiation Safety reached 0.`;
+    else happened = `A ${sizeWord} <b>${esc(f.class)} solar storm</b> hit even with your ${esc(hit.card.title)}. Radiation Safety reached 0.`;
+    saveHtml = `Pick a ${names('solar_storm')} card, or run back to the base before the storm hits.`;
+    source = 'Storm data: NASA CCMC DONKI · archived';
+  } else if (['meteor', 'power_failure', 'dust_storm'].includes(cause)) {
+    happened = `A <b>${esc(data.dangers[cause].name)}</b> hit${hit && hit.card ? ` and your ${esc(hit.card.title)} was not enough` : ' and you had no card for it'}. ${BAR_NAMES[bar]} reached 0.`;
+    saveHtml = `Pick a ${names(cause)} card for this danger, and keep your ${BAR_NAMES[bar]} high with supplies.`;
+  } else if (bar === 'power') {
+    happened = cause === 'rover' ? 'Driving the rover used up all your <b>Power</b>.' : 'Your <b>Power</b> ran out: the suit and cards used more than you collected.';
+    saveHtml = 'Grab glowing <b>batteries</b> and <b>solar panels</b>, drive less, and choose cards that cost less Power.';
+  } else if (bar === 'life') {
+    happened = 'Your <b>Life Support</b> ran out: the crew needs air, water and food every second.';
+    saveHtml = 'Grab glowing <b>ice</b> and <b>oxygen tanks</b>. They refill Life Support.';
+  } else {
+    happened = 'Your <b>Radiation Safety</b> ran out.';
+    saveHtml = `Grab <b>shield plates</b> and pick a ${names('solar_storm')} card.`;
+  }
+  audio.sfx('lose');
+  screens.showLose({ day: D ? D.day : 1, total: M.total, happenedHtml: happened, saveHtml, source }, {
+    retry: () => { audio.sfx('click'); startMission(M.level); },
+    lobby: () => goLobby(M.level),
   });
 }
 
+// ================= PAUSE =================
+function openPause() {
+  if (!['land', 'explore'].includes(G.phase) || G.paused) return;
+  G.paused = true; endLoops();
+  const M = G.M;
+  const show = () => screens.showPause({ day: M.day, total: M.total, levelName: levelName(M.level) }, {
+    resume: () => { screens.closeScreen(); G.paused = false; clock.getDelta(); },
+    how: () => info('how', show), settings: () => info('settings', show),
+    quit: () => {
+      save.data.inProgress = { level: M.level, day: M.day, bars: { ...G.D.startBars }, usedFlares: [...M.usedFlares], xp: M.xp, cardsUsed: M.cardsUsed, storms: M.storms };
+      save.write(); goLobby(M.level);
+    },
+  });
+  show();
+}
 function endLoops() { audio.loop('thruster', false); audio.loop('rover', false); }
 
-// ---------------- keys ----------------
+// ================= keys + buttons =================
 input.onKey((code) => {
-  if (G.phase === 'briefing' && /^Digit[1-3]$/.test(code)) { const c = G.offer[+code.slice(5) - 1]; if (c) pickCard(c.id); return; }
   if (code === 'KeyM') { audio.setMuted(!audio.isMuted()); renderMute(); return; }
   if (code === 'Escape' || code === 'KeyP') {
     if (!$('tipBubble').hidden) { hideTip(); return; }
-    if (G.bagOpen) { closeBag(); return; }
-    if (G.paused && ['drop', 'explore'].includes(G.phase)) { resume(); return; }
+    if (G.paused) { screens.closeScreen(); G.paused = false; clock.getDelta(); return; }
     openPause(); return;
   }
   if (G.paused || G.phase !== 'explore') return;
-  if (code === 'Tab' || code === 'KeyI') toggleBag();
+  if (/^Digit[1-3]$/.test(code)) useCard(+code.slice(5) - 1);
   else if (code === 'KeyE') toggleRover();
-  else if (code === 'KeyF') fastForward();
-  else if (/^Digit[1-4]$/.test(code)) useSlot(+code.slice(5) - 1);
 });
+$('hand').addEventListener('click', (e) => { const b = e.target.closest('[data-card]'); if (b && G.phase === 'explore') useCard(+b.dataset.card); });
 function renderMute() {
   const m = audio.isMuted();
-  $('muteBtn').innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${m
-    ? '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="m22 9-6 6M16 9l6 6"/>'
-    : '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>'}</svg>`;
-  $('muteBtn').setAttribute('aria-label', m ? 'Unmute sound (M)' : 'Mute sound (M)');
+  $('muteBtn').innerHTML = icon(m ? 'soundOff' : 'soundOn', 20);
+  $('muteBtn').setAttribute('aria-label', m ? 'Sound off – turn on' : 'Sound on – turn off');
 }
 $('muteBtn').addEventListener('click', () => { audio.unlock(); audio.setMuted(!audio.isMuted()); renderMute(); });
 $('pauseBtn').addEventListener('click', openPause);
-document.addEventListener('visibilitychange', () => { if (document.hidden && ['drop', 'explore'].includes(G.phase) && !G.paused) openPause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) openPause(); });
 document.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 document.addEventListener('keydown', () => audio.unlock(), { once: true });
+addEventListener('resize', resize);
 
-// ---------------- game loop ----------------
+// ================= frame loop =================
 const clock = new THREE.Clock();
-let lbT = 0;
-const ORIGIN = new THREE.Vector3(0, 0, 0);
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.05) * (G.timeScale || 1);   // timeScale: developer testing only
-  if (G.phase === 'loading') { renderer.render(scene, camera); return; }
   G.time += dt;
-  const playing = G.phase === 'drop' || G.phase === 'explore';
-  if (playing && !G.paused) {
-    if (G.phase === 'drop') updateDropPhase(dt);
-    else updateExplore(dt);
-    if (G.phase === 'drop' || G.phase === 'explore') {
-      lbT -= dt;
-      if (lbT <= 0) {
-        lbT = 0.4;
-        const rows = [{ name: 'You', color: suitColor(), points: G.sol.stats.points, home: storm.stage !== 'calm' && storm.inFinal(player.pos), you: true },
-          ...bots.bots.map((b) => ({ name: b.short, color: b.color, points: b.points, home: b.arrivedAt !== null }))]
-          .sort((a, b) => (b.home - a.home) || (b.points - a.points));
-        hud.leaderboard(rows);
-        hud.buffs(G.buffs);
+  const playing = G.phase === 'land' || G.phase === 'explore';
+  if (playing) {
+    if (!G.paused) {
+      updateDay(dt);
+      if (G.M && G.D && (G.phase === 'land' || G.phase === 'explore')) {
+        hud.updateBars(G.M.bars, player, G.D.zoneT > 0 || (G.D.active && G.D.active.type === 'solar_storm'));
+        hud.drawMinimap(G.time, { loot: loot.items, rovers: rovers.list, player: player.pos, facing: player.facing, scanner: G.D.scannerT > 0, zoneR: G.D.zoneT > 0 ? G.D.zoneR : 0 });
       }
-      hud.updateBars(G.mission.bars, player);
-      hud.compass(rig);
-      hud.drawMinimap(G.time, {
-        storm, showZoneEarly: !!G.sol.mod.showNextZone, flightPath: G.phase === 'drop' ? lander.path : null,
-        landerPos: G.inLander ? lander.model.position : null, loot: loot.items, scanner: G.buffs.scanner > 0,
-        pods: airdrops.pods, rovers: rovers.list, bots: bots.bots, player: player.pos, forward: rig.forward(), facing: player.facing,
-      });
     }
+    loot.update(G.time); props.update(G.time, player.pos); fx.update(dt);
+    rig.update(player.pos, dt);
+    sun.position.set(player.pos.x + 60, player.pos.y + 90, player.pos.z + 40); sun.target.position.copy(player.pos);
+    renderer.render(scene, camera);
+  } else if (G.phase === 'lobby' || (G.phase === 'info' && false)) {
+    animateLobby(G.time);
+    renderer.render(lobbyScene, lobbyCam);
   }
-  if (loot) loot.update(G.time);
-  if (props) props.update(G.time, player.pos);
-  fx.update(dt);
-  // camera focus
-  let focus = ORIGIN;
-  if (playing) focus = G.inLander ? lander.model.position : player.pos;
-  rig.update(focus, dt);
-  sun.position.set(focus.x + 60, focus.y + 90, focus.z + 40);
-  sun.target.position.copy(focus);
-  renderer.render(scene, camera);
   input.endFrame();
 }
 
-// ---------------- start-up ----------------
+// ================= start-up =================
 async function boot() {
-  applySettings();
-  renderMute();
+  resize(); applySettings(); renderMute();
   try {
-    $('loadText').textContent = 'Loading archived NASA data…'; $('loadBar').style.width = '20%';
+    $('loadBar').style.width = '25%';
     data = await loadData();
-    $('loadBar').style.width = '55%'; $('loadText').textContent = 'Loading NASA Mars Trek imagery…';
+    $('loadBar').style.width = '60%'; $('loadText').textContent = 'Loading NASA Mars Trek imagery…';
     await new Promise((resolve) => {
       new THREE.TextureLoader().load('assets/mars_trek_viking.jpg', (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.repeat.set(0.3, 1); tex.offset.set(0.18, 0);   // a square-ish crop of the global mosaic
-        tex.wrapS = THREE.RepeatWrapping;
+        tex.colorSpace = THREE.SRGBColorSpace; tex.repeat.set(0.3, 1); tex.offset.set(0.18, 0); tex.wrapS = THREE.RepeatWrapping;
         marsTexture = tex; marsImage = tex.image; resolve();
       }, undefined, () => resolve());
     });
-    $('loadBar').style.width = '85%'; $('loadText').textContent = 'Building the Moon…';
+    $('loadBar').style.width = '90%'; $('loadText').textContent = 'Building the Moon…';
     await new Promise((r) => setTimeout(r, 30));
     buildLevel('moon');
-    $('loadBar').style.width = '100%';
     $('loading').hidden = true;
-    goMenu();
+    goName();
   } catch (err) {
     console.error(err);
-    $('loadText').innerHTML = 'Could not load the game data. If you opened the file directly, please run a small web server instead:<br><code>python -m http.server 8000</code> then open <code>http://localhost:8000</code>';
+    $('loadText').innerHTML = 'Could not load the game data. Please run a small web server:<br><code>python -m http.server 8000</code> then open <code>http://localhost:8000</code>';
   }
 }
 frame();

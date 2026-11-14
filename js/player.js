@@ -21,7 +21,7 @@ export function makeAstronaut(accent = '#e8f22a') {
   helmet.position.y = 1.72;
   // visor: a slice of a sphere centred on the front (+z)
   const visor = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8, Math.PI / 2 - Math.PI / 2.4, Math.PI / 1.2, Math.PI / 2 - Math.PI / 5.2, Math.PI / 2.6),
-    mat('#152044', { metalness: 0.9, roughness: 0.15, emissive: '#c9a227', emissiveIntensity: 0.08 }));
+    mat('#4a2f86', { metalness: 0.5, roughness: 0.2, emissive: '#e8a24a', emissiveIntensity: 0.22 }));
   visor.position.set(0, 1.72, 0.08);
   const pack = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.72, 0.32), dark);
   pack.position.set(0, 1.12, -0.42);
@@ -125,6 +125,7 @@ export function createPlayer(scene, world) {
 
     let speed = p.crouch ? P.crouchSpeed : sprinting ? P.sprintSpeed * (mods.sprintMult || 1) : P.walkSpeed;
     if (p.speedBoost > 0) { speed *= 1.35; p.speedBoost -= dt; }
+    speed *= (mods.speedMult || 1);   // e.g. the Power Save card: slow walking
 
     const control = p.onGround ? 1 : P.airControl;
     const k = 1 - Math.exp(-P.accel * control * dt);

@@ -17,10 +17,12 @@ const DEFAULTS = {
   marsWon: false,
   tutorialDone: false,
   missions: 0,
+  stars: 0,             // all stars earned in night reports
+  inProgress: null,     // a mission saved with "Save & quit": { level, day, bars, ... }
   settings: {
     quality: 'medium', volume: 0.7, music: true, reduceMotion: reduceMotionDefault,
     sensitivity: 1, missionLength: 12, unlockAll: false, touch: 'auto',
-    suit: 'yellow', roverSkin: 'white',
+    suit: 'yellow', roverSkin: 'white', theme: 'navy',
   },
 };
 
@@ -47,9 +49,9 @@ export const save = {
 // ---------- ranks + unlocks (by total XP) ----------
 export const RANKS = [
   { id: 'cadet', label: 'Cadet', xp: 0 },
-  { id: 'pilot', label: 'Pilot', xp: 800 },
-  { id: 'commander', label: 'Commander', xp: 2500 },
-  { id: 'specialist', label: 'Mission Specialist', xp: 5000 },
+  { id: 'pilot', label: 'Pilot', xp: 400 },
+  { id: 'commander', label: 'Commander', xp: 1000 },
+  { id: 'specialist', label: 'Mission Specialist', xp: 2500 },
 ];
 export function rankFor(xp) {
   let r = RANKS[0];

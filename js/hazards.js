@@ -83,5 +83,6 @@ export function createHazards(scene, world, fx) {
     return events;
   }
 
-  return { schedule, update, clear };
+  // shower(pos): only the visual shower (the Emergency-card system applies the damage)
+  return { schedule, update, clear, shower: startShower };
 }
