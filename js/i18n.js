@@ -104,6 +104,17 @@
       earth_msg: '📡 Message from Earth (sent about 20 minutes ago, so it is old news!): "Yesterday your Power was {power}, Life Support {life}, Radiation Safety {rad}. Good luck, Commander!"',
       earth_first: '📡 Message from Earth: "Welcome to Mars! Our messages take about 20 minutes to reach you. You must make your own choices."',
 
+      // NASA data notes
+      rad_note_moon: '📊 Real NASA data (RadLab): radiation near the Moon is about {x} times stronger than on the Space Station, so Radiation Safety drops faster here.',
+      rad_note_mars: '📊 Real NASA data (RadLab): radiation on the Mars surface is about {x} times stronger than on the Space Station, so Radiation Safety drops faster here.',
+      rad_source: 'Source: NASA OSDR RadLab, archived NASA data',
+      archived: 'archived NASA data',
+      dyk_title: '💡 Did you know?',
+      dyk_rad_moon: 'NASA detectors measured the radiation near the Moon (LRO spacecraft) and on the Space Station. The Moon had about {x} times more!',
+      dyk_rad_mars: 'NASA’s Curiosity rover measures radiation on Mars. It is about {x} times more than inside the Space Station.',
+      dyk_rad_deep: 'Far out in deep space, NASA’s BioSentinel measured about {x} times more radiation than the Space Station. Earth’s magnetic field helps protect the Station.',
+      mars_credit: 'Mars background: NASA Mars Trek – Viking color mosaic (NASA/JPL-Caltech, USGS).',
+      footer_more: 'Radiation: NASA OSDR RadLab. Science facts: NASA OSDR studies. All data is an archived snapshot.',
       footer: 'Solar flares: NASA CCMC DONKI (archived NASA data, not live). Made by TechNest Thinkers for NASA Space Apps 2026.',
       runLocal: 'Tip for teachers: open this game through a web server (python -m http.server).'
     }

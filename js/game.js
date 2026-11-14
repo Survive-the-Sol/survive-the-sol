@@ -27,18 +27,18 @@
     // Moon (easy): long lunar night in the middle, flares from THIS year (2026).
     moon: {
       id: 'moon', days: 12, handSize: 4, picks: 2, cardSet: 'moon',
-      start: { power: 75, life: 75, rad: 80, morale: 70, plant: 50 },
+      start: { power: 80, life: 75, rad: 90, morale: 70, plant: 50 },
       drain: { power: 5, life: 6, rad: 2 },
       // Lunar night from day 6 to day 10: solar panels make less power.
       night: { from: 6, to: 10, power: 5 },
       dust: null, commDelay: false,
-      events: { flare: 30, failure: 15, quiet: 55 },
+      events: { flare: 26, failure: 14, quiet: 60 },
       flareSet: 'moon', severityWeights: { mild: 40, strong: 45, extreme: 15 }
     },
     // Mars (hard): fewer cards, dust storms, the strongest 2024 flares, message delay.
     mars: {
       id: 'mars', days: 12, handSize: 3, picks: 2, cardSet: 'mars',
-      start: { power: 70, life: 70, rad: 75, morale: 65, plant: 50 },
+      start: { power: 70, life: 70, rad: 80, morale: 65, plant: 50 },
       drain: { power: 5, life: 6, rad: 2 },
       night: null,
       dust: { days: 2, power: 6 },   // a dust storm lasts 2 more days

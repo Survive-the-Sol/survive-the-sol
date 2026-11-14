@@ -152,6 +152,14 @@ html[lang="ur"] .tip-bubble { font-family: var(--font-ur); line-height: 2; }
 .highlight { outline: 5px solid var(--accent) !important; outline-offset: 4px; border-radius: var(--radius); animation: glow 1.2s ease-in-out infinite; }
 @keyframes glow { 50% { outline-color: #fff; } }
 
+/* ---------- data notes / did you know ---------- */
+.data-note { margin: 4px 0 10px; font-size: .95rem; color: var(--muted); }
+.data-note a { font-weight: 700; }
+.dyk { margin-top: 12px; padding: 10px 14px; border-radius: 14px; background: #10304a; border: 2px solid #38bdf8; }
+.dyk h3 { margin: 0 0 4px; font-size: 1.15rem; color: #7dd3fc; }
+.dyk p { margin: 0 0 4px; }
+.mars-credit { font-size: .8rem; }
+
 /* ---------- banners ---------- */
 .banners { display: grid; gap: 8px; }
 .banner { margin: 0; background: var(--panel2); border-inline-start: 6px solid var(--accent); padding: 8px 14px; border-radius: 12px; font-weight: 600; }
@@ -202,7 +210,12 @@ dialog::backdrop { background: #000a; }
 /* ---------- level looks + screen effects ---------- */
 .fx-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; transition: background .8s, opacity .8s; }
 body.level-moon { background-color: #0d1022; }
-body.level-mars { background-color: #2a0f0a; }
+body.level-mars {
+  background-color: #2a0f0a;
+  /* Real Mars image from NASA Mars Trek (credit in the footer) */
+  background-image: linear-gradient(180deg, #1a080599 0%, #2a0f0a88 60%, #2a0f0acc 100%), url('../assets/mars_trek_viking.jpg');
+  background-size: cover; background-position: center;
+}
 body.fx-night .fx-layer { background: radial-gradient(ellipse at center, #0000 30%, #000c 100%); }
 body.fx-night main { filter: brightness(.88); }
 body.fx-dust .fx-layer {

@@ -67,6 +67,7 @@
     $('solText').textContent = s.level.id === 'tutorial' ? t('sol0') : t('sol', { n: s.sol, total: s.level.days });
     $('scoreText').textContent = s.score;
     renderBars();
+    renderRadNote();
     renderBanners();
     renderHand();
     var playable = s.hand.some(function (c) { return Game.canPlay(s, c).ok; });
@@ -89,6 +90,48 @@
         '<div class="bar-fill" style="width:' + v + '%"></div></div></div>';
     }).join('');
     UI.prevBars = { power: s.bars.power, life: s.bars.life, rad: s.bars.rad };
+  }
+
+  // Shows how the RadLab data changes this level (Validity!).
+  function renderRadNote() {
+    var info = UI.data.radiationInfo, s = UI.s, id = s.level.cardSet, el = $('radNote');
+    $('marsCredit').hidden = s.level.id !== 'mars';
+    if (!info || !info.game_scale || s.level.id === 'tutorial') { el.innerHTML = ''; return; }
+    el.innerHTML = esc(t('rad_note_' + id, { x: info.game_scale[id] })) +
+      ' <a href="' + esc(info.source_link) + '" target="_blank" rel="noopener">' + esc(t('rad_source')) + '</a>';
+  }
+
+  // "Did you know?" – real NASA facts (OSDR studies + RadLab numbers), no repeats.
+  function factPool() {
+    var pool = (UI.data.facts || []).map(function (f) {
+      return { emoji: f.emoji, text: I18N.field(f, 'text'), source: f.source, link: f.source_link };
+    });
+    var info = UI.data.radiationInfo;
+    if (info && info.places) {
+      var iss = info.places.iss.median_uGy_per_hour;
+      var ratio = function (k) { return (info.places[k].median_uGy_per_hour / iss).toFixed(1); };
+      ['moon', 'mars_surface', 'deep_space'].forEach(function (k) {
+        var key = { moon: 'dyk_rad_moon', mars_surface: 'dyk_rad_mars', deep_space: 'dyk_rad_deep' }[k];
+        pool.push({ emoji: '📊', text: t(key, { x: ratio(k) }), source: t('rad_source'), link: info.source_link });
+      });
+    }
+    return pool;
+  }
+  function nextFact() {
+    var pool = factPool();
+    if (!pool.length) return null;
+    UI.factOrder = UI.factOrder && UI.factOrder.length ? UI.factOrder : shuffleIdx(pool.length);
+    return pool[UI.factOrder.pop()];
+  }
+  function shuffleIdx(n) {
+    var a = []; for (var i = 0; i < n; i++) a.push(i);
+    for (var j = n - 1; j > 0; j--) { var k = Math.floor(Math.random() * (j + 1)); var x = a[j]; a[j] = a[k]; a[k] = x; }
+    return a;
+  }
+  function factHtml(f) {
+    if (!f) return '';
+    return '<div class="dyk"><h3>' + esc(t('dyk_title')) + '</h3><p><span aria-hidden="true">' + f.emoji + '</span> ' + esc(f.text) + '</p>' +
+      '<p class="source"><a href="' + esc(f.link) + '" target="_blank" rel="noopener">' + esc(f.source) + '</a> · ' + esc(t('archived')) + '</p></div>';
   }
 
   function renderBanners() {
@@ -195,7 +238,8 @@
 
     var html = '<h2 id="modalTitle">' + esc(t('dayReport', { n: UI.levelId === 'tutorial' ? 0 : rep.sol })) + '</h2>' +
       '<div class="report-needs"><p>' + esc(t('dailyNeeds')) + (extra.length ? ' (' + esc(extra.join(', ')) + ')' : '') + ':</p>' + needs + '</div>' +
-      '<div class="report-event ev-' + rep.event.type + '">' + eventHtml(rep) + '</div>';
+      '<div class="report-event ev-' + rep.event.type + '">' + eventHtml(rep) + '</div>' +
+      (UI.s.over ? '' : factHtml(nextFact()));
 
     $('modalBody').innerHTML = html;
     $('modalBtn').textContent = UI.s.over ? t('seeResult') : t('next');
@@ -337,7 +381,7 @@
     // Escape must not close the day report without moving on.
     $('modal').addEventListener('cancel', function (e) { e.preventDefault(); });
     $('againBtn').addEventListener('click', function () { startLevel(UI.levelId === 'tutorial' ? 'moon' : UI.levelId); });
-    $('menuBtn').addEventListener('click', function () { document.body.className = ''; show('screen-title'); });
+    $('menuBtn').addEventListener('click', function () { document.body.className = ''; $('marsCredit').hidden = true; show('screen-title'); });
     $('langBtn').addEventListener('click', function () {
       I18N.setLang(I18N.lang === 'en' ? 'ur' : 'en');
       applyStaticText();
