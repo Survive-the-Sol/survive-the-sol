@@ -191,7 +191,13 @@ html[lang="ur"] .tip-bubble { font-family: var(--font-ur); line-height: 2; }
 .card:hover:not(:disabled) { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 10px 22px #0006; }
 .card:disabled { cursor: not-allowed; opacity: .6; }
 .card.played { opacity: 1; border-color: var(--good); background: linear-gradient(160deg, #1f5135, #193d2b); }
+.card { position: relative; }
+.card-key {
+  position: absolute; top: 10px; inset-inline-end: 12px; width: 30px; height: 30px; border-radius: 50%;
+  background: #0b1026; color: var(--accent); font-weight: 800; display: grid; place-items: center; font-size: 1rem;
+}
 .card-emoji { font-size: 2.4rem; line-height: 1; }
+.center { text-align: center; }
 .card-title { font-size: 1.2rem; font-weight: 800; }
 .card-desc { color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -25,6 +25,8 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  // Flare names come from the data in English; in Urdu we use our own words.
+  function flareLabel(f) { return I18N.lang === 'en' ? f.kid_label : t('flare_' + f.severity); }
   function signed(n) { return (n > 0 ? '+' : '−') + Math.abs(n); }
   function show(screenId) {
     ['screen-title', 'screen-game', 'screen-end'].forEach(function (id) { $(id).hidden = id !== screenId; });
@@ -170,7 +172,7 @@
 
   function renderHand() {
     var s = UI.s;
-    $('hand').innerHTML = s.hand.map(function (card) {
+    $('hand').innerHTML = s.hand.map(function (card, i) {
       var check = Game.canPlay(s, card);
       var fx = Game.cardEffects(s, card);
       var chips = Object.keys(fx).map(function (k) {
@@ -186,6 +188,7 @@
       var solarNote = card.solar && (Game.isNight(s) || Game.isDusty(s)) ? '<span class="card-warn">' + esc(t('halfSolar')) + '</span>' : '';
       return '<button class="card' + (check.reason === 'played' ? ' played' : '') + '" type="button" data-card="' + card.id + '"' +
         (check.ok ? '' : ' disabled') + '>' +
+        '<span class="card-key" aria-hidden="true">' + (i + 1) + '</span>' +
         '<span class="card-emoji" aria-hidden="true">' + card.emoji + '</span>' +
         '<span class="card-title">' + esc(I18N.field(card, 'title')) + '</span>' +
         '<span class="card-desc">' + esc(I18N.field(card, 'desc')) + '</span>' +
@@ -234,7 +237,7 @@
     };
     if (ev.type === 'flare') {
       var f = ev.flare;
-      html += '<h3>' + esc(t('ev_flare_t', { label: f.kid_label })) + ' ' + tipButton('tip_flare') + '</h3>';
+      html += '<h3>' + esc(t('ev_flare_t', { label: flareLabel(f) })) + ' ' + tipButton('tip_flare') + '</h3>';
       html += '<p>' + esc(t('ev_flare', { cls: f['class'], date: f.date, hit: hitOf('flare') })) + '</p>';
       if (rep.sheltered) html += '<p class="good">' + esc(t('ev_flare_sheltered')) + '</p>';
       if (UI.levelId !== 'mars' && /2026/.test(f.date)) html += '<p class="note">' + esc(t('ev_flare_this_year')) + '</p>';
@@ -350,7 +353,8 @@
     var key = 'fail_' + fail.bar + '_' + fail.cause;
     if (fail.cause === 'flare') {
       var f = fail.event.flare;
-      return t(key, { label: f.kid_label.replace(/!$/, '').toLowerCase(), cls: f['class'], date: f.date });
+      var label = I18N.lang === 'en' ? f.kid_label.replace(/!$/, '').toLowerCase() : flareLabel(f);
+      return t(key, { label: label, cls: f['class'], date: f.date });
     }
     if (!I18N.strings.en[key]) key = 'fail_' + fail.bar + '_daily';
     return t(key);
@@ -534,7 +538,17 @@
     });
     document.addEventListener('focusin', function (e) { if (e.target.classList.contains('tip')) showTip(e.target); });
     document.addEventListener('mouseover', function (e) { var tip = e.target.closest && e.target.closest('.tip'); if (tip) showTip(tip); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideTip(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { hideTip(); return; }
+      // Keyboard play: 1-4 picks a card, E ends the day (not while typing or in a pop-up).
+      if ($('screen-game').hidden || $('modal').open || /INPUT|TEXTAREA/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (/^[1-4]$/.test(e.key)) {
+        var card = $('hand').querySelectorAll('.card')[Number(e.key) - 1];
+        if (card && !card.disabled) { e.preventDefault(); onCard(card.getAttribute('data-card')); }
+      } else if ((e.key === 'e' || e.key === 'E') && !$('endDayBtn').disabled) {
+        e.preventDefault(); onEndDay();
+      }
+    });
     window.addEventListener('scroll', hideTip, { passive: true });
 
     $('endDayBtn').addEventListener('click', onEndDay);
