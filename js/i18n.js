@@ -34,6 +34,7 @@
       doseWord: 'dose',
 
       sol: 'Sol {n} of {total}',
+      sol0: 'Sol 0 (training)',
       score: 'Science',
       pickCards: 'Pick {n} action(s) for today',
       picksDone: 'All actions done. End the day!',
@@ -88,6 +89,20 @@
       tutorialDone_t: '🎓 Training complete!',
       tutorialDone: 'Great job! You know the basics. Now try the Moon base.',
       startMoon: 'Go to the Moon 🌙',
+
+      // tutorial (ROVI guides the player)
+      tut_1: 'Hi! I am ROVI, your robot helper. Today is Sol 0, a training day. Let me show you around!',
+      tut_2: '⚡ This is Power: electricity for lights, heaters and machines. Solar panels make it.',
+      tut_3: '💚 This is Life Support: air to breathe, water to drink and food to eat.',
+      tut_4: '🛡️ This is Radiation Safety: how well your crew is protected from space radiation.',
+      tut_5: 'Watch out! If ANY bar reaches 0, the mission fails. Keep all three bars up.',
+      tut_6: 'These are action cards. Green numbers go UP, red numbers go DOWN. Every choice has a cost!',
+      tut_7: 'Tap a "?" button to learn a new word. Now pick 2 cards. Tip: the shield wall helps with radiation!',
+      tut_8: 'Great choices! Now press "End the day". Something may happen tonight…',
+      tutNext: 'Next ➜',
+      // Mars: messages from Earth arrive late
+      earth_msg: '📡 Message from Earth (sent about 20 minutes ago, so it is old news!): "Yesterday your Power was {power}, Life Support {life}, Radiation Safety {rad}. Good luck, Commander!"',
+      earth_first: '📡 Message from Earth: "Welcome to Mars! Our messages take about 20 minutes to reach you. You must make your own choices."',
 
       footer: 'Solar flares: NASA CCMC DONKI (archived NASA data, not live). Made by TechNest Thinkers for NASA Space Apps 2026.',
       runLocal: 'Tip for teachers: open this game through a web server (python -m http.server).'

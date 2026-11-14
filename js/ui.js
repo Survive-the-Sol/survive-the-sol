@@ -51,9 +51,12 @@
     try { localStorage.setItem('sts-name', UI.name); } catch (e) { /* ignore */ }
     UI.s = Game.newGame(levelId, UI.data);
     UI.prevBars = null;
+    UI.tutStep = levelId === 'tutorial' ? 1 : 0;
+    UI.lastBars = null;   // Mars: Earth only knows yesterday's numbers
     document.body.className = 'level-' + levelId;
     show('screen-game');
     render();
+    if (UI.tutStep) showTutorialStep(); else updateCoach();
     $('hand').querySelector('button:not([disabled])') && $('hand').querySelector('button:not([disabled])').focus();
   }
 
@@ -61,7 +64,7 @@
   function render() {
     var s = UI.s;
     $('levelName').textContent = t('lvl_' + s.level.id);
-    $('solText').textContent = t('sol', { n: s.sol, total: s.level.days });
+    $('solText').textContent = s.level.id === 'tutorial' ? t('sol0') : t('sol', { n: s.sol, total: s.level.days });
     $('scoreText').textContent = s.score;
     renderBars();
     renderBanners();
@@ -143,11 +146,13 @@
     var fx = Game.playCard(UI.s, id);
     if (!fx) return;
     render();
+    if (UI.levelId === 'tutorial' && UI.s.picksLeft === 0) { UI.tutStep = 8; showTutorialStep(); }
     var next = $('hand').querySelector('button:not([disabled])') || $('endDayBtn');
     next.focus();
   }
 
   function onEndDay() {
+    UI.lastBars = { power: UI.s.bars.power, life: UI.s.bars.life, rad: UI.s.bars.rad };
     var rep = Game.endDay(UI.s);
     showDayReport(rep);
   }
@@ -188,7 +193,7 @@
     if (rep.night) extra.push(t('night'));
     if (rep.dusty) extra.push(t('dust'));
 
-    var html = '<h2 id="modalTitle">' + esc(t('dayReport', { n: rep.sol })) + '</h2>' +
+    var html = '<h2 id="modalTitle">' + esc(t('dayReport', { n: UI.levelId === 'tutorial' ? 0 : rep.sol })) + '</h2>' +
       '<div class="report-needs"><p>' + esc(t('dailyNeeds')) + (extra.length ? ' (' + esc(extra.join(', ')) + ')' : '') + ':</p>' + needs + '</div>' +
       '<div class="report-event ev-' + rep.event.type + '">' + eventHtml(rep) + '</div>';
 
@@ -211,7 +216,48 @@
   function onModalBtn() {
     closeModal();
     hideTip();
-    if (UI.s.over) showEnd(); else { render(); $('hand').querySelector('button:not([disabled])').focus(); }
+    if (UI.s.over) showEnd();
+    else { render(); updateCoach(); $('hand').querySelector('button:not([disabled])').focus(); }
+  }
+
+  // ---------- ROVI coach panel ----------
+  function coach(text, nextLabel) {
+    $('coach').hidden = !text;
+    $('coachText').textContent = text || '';
+    $('coachNext').hidden = !nextLabel;
+    if (nextLabel) $('coachNext').textContent = nextLabel;
+  }
+  function highlight(selector) {
+    document.querySelectorAll('.highlight').forEach(function (el) { el.classList.remove('highlight'); });
+    if (selector) { var el = document.querySelector(selector); if (el) el.classList.add('highlight'); }
+  }
+
+  // Tutorial: ROVI explains each bar and the cards, one step at a time.
+  var TUT_TARGETS = { 2: '.bar-power', 3: '.bar-life', 4: '.bar-rad', 5: '#bars', 6: '#hand', 8: '#endDayBtn' };
+  function showTutorialStep() {
+    var n = UI.tutStep;
+    coach(t('tut_' + n), n < 7 ? t('tutNext') : null);
+    highlight(TUT_TARGETS[n]);
+    if (n < 7) $('coachNext').focus();
+  }
+  function onCoachNext() {
+    if (UI.levelId === 'tutorial' && UI.tutStep < 7) {
+      UI.tutStep++;
+      showTutorialStep();
+      if (UI.tutStep === 7) { var c = $('hand').querySelector('.card:not([disabled])'); if (c) c.focus(); }
+    }
+  }
+
+  // What ROVI says at the start of a normal day.
+  function updateCoach() {
+    var s = UI.s;
+    highlight(null);
+    if (s.level.commDelay) {
+      // Mars: Earth's message is about YESTERDAY, because messages are slow.
+      coach(UI.lastBars ? t('earth_msg', UI.lastBars) : t('earth_first'));
+    } else {
+      coach(null);
+    }
   }
 
   // ---------- end screen ----------
@@ -287,6 +333,7 @@
 
     $('endDayBtn').addEventListener('click', onEndDay);
     $('modalBtn').addEventListener('click', onModalBtn);
+    $('coachNext').addEventListener('click', onCoachNext);
     // Escape must not close the day report without moving on.
     $('modal').addEventListener('cancel', function (e) { e.preventDefault(); });
     $('againBtn').addEventListener('click', function () { startLevel(UI.levelId === 'tutorial' ? 'moon' : UI.levelId); });
