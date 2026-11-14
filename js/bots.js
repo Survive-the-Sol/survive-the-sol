@@ -124,7 +124,7 @@ export function createBots(scene, world, loot, feed) {
             loot.remove(it);
             b.supplies++; b.points += it.rarity.points; b.pause = 2.2;
             if (it.airdrop) feed(`${b.short} reached an airdrop first!`, 'warn');
-            else if (it.rarity.points >= 3) feed(`${b.short} found ${it.rarity.id === 'legendary' ? 'a legendary' : 'an epic'} supply`, 'info');
+            else if (it.rarity.id === 'legendary') feed(`${b.short} found a legendary supply`, 'info');
             b.targetItem = null; b.thinkIn = 0;
           }
         } else if (b.state === 'loot' && b.targetItem && !loot.items.includes(b.targetItem)) { b.targetItem = null; b.thinkIn = 0; }

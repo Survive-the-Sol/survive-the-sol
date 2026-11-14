@@ -31,7 +31,7 @@ export async function loadData() {
     },
     flareInfo: {
       moon: { file: 'data/flares_2026.json', year: 2026, count: f2026.count, fetched: f2026.fetched_on },
-      mars: { file: 'data/flares.json', year: 2024, count: f2024.count, fetched: f2024.fetched_on },
+      mars: { file: 'data/flares.json', year: 2024, count: f2024.events.filter((e) => e.severity !== 'mild').length, total: f2024.count, fetched: f2024.fetched_on },
     },
     radiation,
     facts: facts.facts,

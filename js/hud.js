@@ -237,7 +237,7 @@ export function createHud() {
     const el = $('flareChip');
     if (!flare) { el.hidden = true; return; }
     el.hidden = false;
-    el.innerHTML = `${icon('flame')}<b>${esc(flare.class)} solar flare</b> · ${esc(flare.date)} <span>Source: NASA CCMC DONKI · archived NASA data</span>`;
+    el.innerHTML = `${icon('flame')}<b>${esc(flare.class)} solar flare</b> · ${esc(flare.date)} <span class="src-long">Source: NASA CCMC DONKI · archived NASA data</span><span class="src-short">· DONKI (archived)</span>`;
   }
   function stormBanner(flare, power, show) {
     const el = $('stormBanner');
