@@ -318,9 +318,8 @@ input[type="range"] { width: min(260px, 100%); accent-color: var(--yellow); heig
 .learn { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 .learn li { display: flex; gap: 12px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--border); }
 .learn li > .icon { margin-top: 3px; }
-.learn li.good > .icon { color: var(--teal); } .learn li.tip > .icon { color: var(--amber); }
+.learn li.l-good > .icon { color: var(--teal); } .learn li.l-tip > .icon { color: var(--amber); }
 .learn li div { display: grid; gap: 4px; }
-.learn li.good, .learn li.tip { font-weight: 400; color: var(--text); }
 .paper-wrap { justify-items: center; }
 #paper { width: 100%; max-width: 620px; height: auto; border-radius: 4px; box-shadow: 0 20px 50px rgba(0, 0, 0, .55); background: #f2ead8; }
 

@@ -30,8 +30,8 @@ export const CONFIG = {
   // The 3 core mission resources (0–100). They carry over from sol to sol.
   bars: {
     start: { power: 80, life: 80, rad: 100 },
-    drainPerSecond: { power: 0.07, life: 0.12 },   // suit power + breathing
-    night: { power: 4, life: 5 },                   // the base uses some overnight
+    drainPerSecond: { power: 0.07, life: 0.085 },   // suit power + breathing
+    night: { power: 4, life: 4 },                   // the base uses some overnight
   },
 
   loot: { count: 120, pickupRadius: 1.8, comboWindow: 3 },

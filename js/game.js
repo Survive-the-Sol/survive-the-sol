@@ -923,7 +923,7 @@ let lbT = 0;
 const ORIGIN = new THREE.Vector3(0, 0, 0);
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const dt = Math.min(clock.getDelta(), 0.05) * (G.timeScale || 1);   // timeScale: developer testing only
   if (G.phase === 'loading') { renderer.render(scene, camera); return; }
   G.time += dt;
   const playing = G.phase === 'drop' || G.phase === 'explore';

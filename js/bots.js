@@ -26,7 +26,8 @@ export function createBots(scene, world, loot, feed) {
   // Each sol: a new personality, and a landing spot along the lander's path.
   function reset(landSpots) {
     bots.forEach((b, i) => {
-      b.speed = 6 + Math.random() * 2.2;
+      b.speed = 5 + Math.random() * 1.8;
+      b.pause = 0; b.stuckT = 0; b.ignore = new Set(); b.lastPos = null;
       b.greed = Math.random();                    // high greed = stays out longer
       b.homeAt = 0;                               // set when the storm warning comes
       b.state = 'waiting'; b.supplies = 0; b.points = 0; b.arrivedAt = null; b.targetItem = null; b.target = null;
@@ -47,6 +48,7 @@ export function createBots(scene, world, loot, feed) {
   function chooseLoot(b) {
     let best = null, bestScore = -1;
     for (const it of loot.items) {
+      if (b.ignore.has(it)) continue;
       const d = Math.hypot(it.x - b.pos.x, it.z - b.pos.z);
       if (d > 70) continue;
       const score = (it.rarity.points + (it.airdrop ? 6 : 0)) / (d + 8);
@@ -90,24 +92,37 @@ export function createBots(scene, world, loot, feed) {
             feed(`${b.short} reached ${shelter.name === 'Main Base' ? 'the base' : 'the bunker'}`, 'info');
           }
         }
-        // move
+        // move (bots stop for a moment after each pickup to pack their bag)
         let speed = 0;
-        if (b.target) {
+        if (b.pause > 0) { b.pause -= dt; b.vel.set(0, 0, 0); }
+        else if (b.target) {
           const dx = b.target.x - b.pos.x, dz = b.target.z - b.pos.z, d = Math.hypot(dx, dz);
           if (d > (b.state === 'home' ? 2.5 : 0.6)) {
             speed = b.state === 'home' ? b.speed * 1.1 : b.speed;
             b.vel.set(dx / d * speed, 0, dz / d * speed);
           } else { b.vel.set(0, 0, 0); if (b.state === 'loot') b.thinkIn = 0; }
         }
+        const bx = b.pos.x, bz = b.pos.z;
         b.pos.addScaledVector(b.vel, dt);
         pushOut(b.pos, world.colliders);
+        // stuck against a wall? give up on that target and pick another one
+        if (speed > 0 && Math.hypot(b.pos.x - bx, b.pos.z - bz) < speed * dt * 0.3) {
+          b.stuckT += dt;
+          if (b.stuckT > 1.5) {
+            b.stuckT = 0;
+            if (b.targetItem) b.ignore.add(b.targetItem);
+            b.targetItem = null;
+            b.target = new THREE.Vector3(b.pos.x + (Math.random() - 0.5) * 30, 0, b.pos.z + (Math.random() - 0.5) * 30);
+            b.thinkIn = 2;
+          }
+        } else b.stuckT = 0;
         b.pos.y = world.heightAt(b.pos.x, b.pos.z);
         // pick up loot it walks over
         if (b.state === 'loot' && b.targetItem && loot.items.includes(b.targetItem)) {
           const it = b.targetItem;
           if (Math.hypot(it.x - b.pos.x, it.z - b.pos.z) < 1.6) {
             loot.remove(it);
-            b.supplies++; b.points += it.rarity.points;
+            b.supplies++; b.points += it.rarity.points; b.pause = 2.2;
             if (it.airdrop) feed(`${b.short} reached an airdrop first!`, 'warn');
             else if (it.rarity.points >= 3) feed(`${b.short} found ${it.rarity.id === 'legendary' ? 'a legendary' : 'an epic'} supply`, 'info');
             b.targetItem = null; b.thinkIn = 0;

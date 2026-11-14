@@ -421,11 +421,11 @@ export function showEnd(r, h) {
     <div class="grid2">
       <div class="panel">
         <h3>What you learned</h3>
-        <ul class="learn">${r.learning.map((l) => `<li class="${l.good ? 'good' : 'tip'}">${icon(l.icon)}<div><b>${esc(l.title)}</b><p>${esc(l.text)}</p></div></li>`).join('')}</ul>
+        <ul class="learn">${r.learning.map((l) => `<li class="${l.good ? 'l-good' : 'l-tip'}">${icon(l.icon)}<div><b>${esc(l.title)}</b><p>${esc(l.text)}</p></div></li>`).join('')}</ul>
       </div>
       <div class="panel">
         <h3>What would a real astronaut do?</h3>
-        <ul class="learn">${r.debrief.map((d) => `<li class="${d.good ? 'good' : 'tip'}">${icon(d.good ? 'check' : 'bulb')}<div><p>${esc(d.text)}</p><p class="caption">${esc(d.source)}</p></div></li>`).join('')}</ul>
+        <ul class="learn">${r.debrief.map((d) => `<li class="${d.good ? 'l-good' : 'l-tip'}">${icon(d.good ? 'check' : 'bulb')}<div><p>${esc(d.text)}</p><p class="caption">${esc(d.source)}</p></div></li>`).join('')}</ul>
       </div>
       <div class="panel wide paper-wrap">
         <canvas id="paper" width="900" height="1240" role="img" aria-label="Newspaper front page"></canvas>
