@@ -1,0 +1,122 @@
+/* =====================================================================
+   Survive the Sol – ALL SCREEN TEXT (translations)
+   To change any word in the game, change it here.
+   {name} style parts are filled in by the game.
+   ===================================================================== */
+(function (root) {
+  'use strict';
+
+  var STRINGS = {
+    en: {
+      langButton: 'اردو',
+      title: 'Survive the Sol',
+      tagline: 'Junior Astronaut Mission Trainer',
+      intro: 'You are the commander of a small base on the Moon and Mars. Keep your crew safe for 12 days!',
+      nameLabel: 'Your name, Commander:',
+      namePlaceholder: 'Type your name',
+      chooseMission: 'Choose your mission',
+      lvl_tutorial: 'Training (Sol 0)', lvl_tutorial_d: 'Learn how to play in 1 day.',
+      lvl_moon: 'Moon Base', lvl_moon_d: 'Easy. Watch out for the long lunar night!',
+      lvl_mars: 'Mars Base', lvl_mars_d: 'Hard. Dust storms and big solar storms!',
+      loading: 'Loading NASA data…',
+      loadError: 'Could not load the game data. Please run the game from a web server (see README): python -m http.server',
+
+      // bars + tooltips
+      bar_power: 'Power', bar_life: 'Life Support', bar_rad: 'Radiation Safety',
+      tip_power: 'Electricity for lights, heaters and machines. Solar panels make it. No power = no base!',
+      tip_life: 'Air to breathe, water to drink and food to eat.',
+      tip_rad: 'How well your crew is protected from space radiation. Radiation is invisible energy from the Sun and stars that can hurt the body.',
+      tip_sol: 'A "sol" is one day on Mars (24 hours 39 minutes). In this game, every turn is one day.',
+      tip_dose: 'Radiation dose = how much radiation your body soaks up. Astronauts wear badges (dosimeters) to measure it.',
+      tip_flare: 'A solar flare is a giant burst of energy from the Sun. Big ones can send dangerous radiation into space.',
+      tip_score: 'Science points: what your crew learned for people on Earth.',
+      whatIs: 'What is this?',
+      doseWord: 'dose',
+
+      sol: 'Sol {n} of {total}',
+      score: 'Science',
+      pickCards: 'Pick {n} action(s) for today',
+      picksDone: 'All actions done. End the day!',
+      endDay: 'End the day 🌙',
+      science: 'Science fact',
+      tooLow: 'Not enough {bar}!',
+      alreadyPlayed: 'Done today ✔',
+      noPicks: 'No actions left',
+      halfSolar: 'Half power from the sun today!',
+
+      // banners
+      banner_night: '🌑 Lunar night: no sunlight, so solar panels make less power. Power drops faster.',
+      banner_dust: '🌪️ Dust storm: dust blocks the sun. Solar power is weak and power drops faster.',
+      banner_delay: '📡 Mars is far away. Earth replies in about 20 minutes, so you must decide yourself!',
+      banner_tutorial: '🎓 Training day! Read the tips and pick 2 cards.',
+
+      // end-of-day pop-up
+      dayReport: 'End of Sol {n}',
+      dailyNeeds: 'Daily needs of your crew',
+      night: 'lunar night', dust: 'dust storm',
+      ev_quiet_t: '😌 A quiet night', ev_quiet: 'Nothing bad happened. The crew feels a bit happier.',
+      ev_flare_t: '☀️💥 {label}',
+      ev_flare: 'A real solar flare (class {cls}) happened on {date}. Radiation Safety −{hit}.',
+      ev_flare_this_year: 'This storm really happened this year!',
+      ev_flare_sheltered: 'Your storm shelter cut the hit in half! 🛡️',
+      ev_dust_t: '🌪️ Dust storm!', ev_dust: 'Red dust covers the sky. Power −{hit}. Solar power will be weak for 2 days.',
+      ev_failure_t: '🔧 Something broke!',
+      ev_failure_power: 'A battery broke. Power −{hit}.',
+      ev_failure_life: 'The water pump broke. Life Support −{hit}.',
+      ev_failure_rad: 'A crack in the shield wall! Radiation Safety −{hit}.',
+      source: 'Source: {src} · archived NASA data',
+      openSource: 'See the NASA record',
+      next: 'Next day ➜', seeResult: 'See result ➜', ok: 'OK',
+
+      // win / lose
+      win_t: '🎉 Mission complete!',
+      win: 'You kept the crew safe for {n} days. Well done, Commander {name}!',
+      lose_t: '💔 Mission failed on Sol {n}',
+      fail_rad_flare: 'Your radiation shield was too weak when a {label} (class {cls}) hit on {date}.',
+      fail_rad_daily: 'Space radiation slowly built up and your shield was too weak.',
+      fail_rad_failure: 'A crack in the shield wall let radiation in when your shield was already weak.',
+      fail_power_night: 'Your batteries ran out during the long, dark lunar night.',
+      fail_power_dust: 'A dust storm covered the solar panels and the power ran out.',
+      fail_power_daily: 'The base used more power than it made.',
+      fail_power_failure: 'A battery broke when power was already very low.',
+      fail_life_daily: 'The crew ran out of air, water and food.',
+      fail_life_failure: 'The water pump broke when Life Support was already very low.',
+      tip_fail_power: 'Tip: fix the solar panels or start the nuclear generator BEFORE the night or a dust storm.',
+      tip_fail_life: 'Tip: grow vegetables, recycle water and make oxygen to keep Life Support up.',
+      tip_fail_rad: 'Tip: when ROVI warns about a solar storm, get the storm shelter ready!',
+      playAgain: 'Play again', backToMenu: 'Choose mission',
+      tutorialDone_t: '🎓 Training complete!',
+      tutorialDone: 'Great job! You know the basics. Now try the Moon base.',
+      startMoon: 'Go to the Moon 🌙',
+
+      footer: 'Solar flares: NASA CCMC DONKI (archived NASA data, not live). Made by TechNest Thinkers for NASA Space Apps 2026.',
+      runLocal: 'Tip for teachers: open this game through a web server (python -m http.server).'
+    }
+  };
+
+  var I18N = {
+    lang: 'en',
+    strings: STRINGS,
+    // t('sol', {n: 3, total: 12}) → "Sol 3 of 12"
+    t: function (key, params) {
+      var table = STRINGS[I18N.lang] || STRINGS.en;
+      var s = table[key];
+      if (s === undefined) s = STRINGS.en[key];
+      if (s === undefined) return key;
+      if (params) s = s.replace(/\{(\w+)\}/g, function (m, p) { return params[p] !== undefined ? params[p] : m; });
+      return s;
+    },
+    // Text from cards.json / facts.json: uses "title_ur" when Urdu is on.
+    field: function (obj, name) {
+      if (I18N.lang !== 'en' && obj[name + '_' + I18N.lang]) return obj[name + '_' + I18N.lang];
+      return obj[name];
+    },
+    setLang: function (lang) {
+      I18N.lang = STRINGS[lang] ? lang : 'en';
+      document.documentElement.lang = I18N.lang;
+      document.documentElement.dir = I18N.lang === 'ur' ? 'rtl' : 'ltr';
+      try { localStorage.setItem('sts-lang', I18N.lang); } catch (e) { /* private mode */ }
+    }
+  };
+  root.I18N = I18N;
+})(window);

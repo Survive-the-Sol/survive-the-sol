@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Survive the Sol – Junior Astronaut Mission Trainer</title>
+  <meta name="description" content="A kids' game (ages 7–12) about keeping a Moon and Mars base alive, using real archived NASA solar flare data.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- To play locally: run "python -m http.server 8000" in this folder, then open http://localhost:8000
+       (Double-clicking this file will NOT work, because the game loads JSON with fetch().) -->
+</head>
+<body>
+  <a class="skip" href="#main">Skip to game</a>
+  <div class="fx-layer" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="logo"><span aria-hidden="true">☀️🚀</span> <span data-i18n="title">Survive the Sol</span></div>
+    <button id="langBtn" class="btn small" type="button">اردو</button>
+  </header>
+
+  <main id="main">
+    <!-- ============ TITLE SCREEN ============ -->
+    <section id="screen-title" class="screen">
+      <h1 data-i18n="title">Survive the Sol</h1>
+      <p class="tagline" data-i18n="tagline"></p>
+      <p class="intro" data-i18n="intro"></p>
+      <label class="name-label" for="playerName" data-i18n="nameLabel"></label>
+      <input id="playerName" type="text" maxlength="20" autocomplete="off" data-i18n-ph="namePlaceholder">
+      <h2 data-i18n="chooseMission"></h2>
+      <div class="levels">
+        <button class="level-btn" data-level="tutorial" type="button">
+          <span class="big" aria-hidden="true">🎓</span>
+          <strong data-i18n="lvl_tutorial"></strong><small data-i18n="lvl_tutorial_d"></small>
+        </button>
+        <button class="level-btn" data-level="moon" type="button">
+          <span class="big" aria-hidden="true">🌙</span>
+          <strong data-i18n="lvl_moon"></strong><small data-i18n="lvl_moon_d"></small>
+        </button>
+        <button class="level-btn" data-level="mars" type="button">
+          <span class="big" aria-hidden="true">🔴</span>
+          <strong data-i18n="lvl_mars"></strong><small data-i18n="lvl_mars_d"></small>
+        </button>
+      </div>
+      <p id="loadMsg" class="note" role="status"></p>
+    </section>
+
+    <!-- ============ GAME SCREEN ============ -->
+    <section id="screen-game" class="screen" hidden>
+      <div class="status-row">
+        <h2 id="levelName" class="level-name"></h2>
+        <div class="sol-box"><span id="solText"></span> <button class="tip" type="button" data-tip="tip_sol">?</button></div>
+        <div class="score-box"><span aria-hidden="true">🔬</span> <span data-i18n="score"></span>: <b id="scoreText">0</b>
+          <button class="tip" type="button" data-tip="tip_score">?</button></div>
+      </div>
+
+      <div id="bars" class="bars" aria-live="polite"></div>
+
+      <div id="banners" class="banners" aria-live="polite"></div>
+
+      <p id="pickText" class="pick-text" aria-live="polite"></p>
+      <div id="hand" class="hand"></div>
+      <div class="actions">
+        <button id="endDayBtn" class="btn primary big-btn" type="button" data-i18n="endDay"></button>
+      </div>
+    </section>
+
+    <!-- ============ END SCREEN ============ -->
+    <section id="screen-end" class="screen" hidden>
+      <div id="endContent"></div>
+      <div class="actions">
+        <button id="againBtn" class="btn primary" type="button" data-i18n="playAgain"></button>
+        <button id="menuBtn" class="btn" type="button" data-i18n="backToMenu"></button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Pop-up for end-of-day events -->
+  <dialog id="modal" aria-labelledby="modalTitle">
+    <div id="modalBody"></div>
+    <div class="actions"><button id="modalBtn" class="btn primary" type="button"></button></div>
+  </dialog>
+
+  <!-- Tooltip bubble for "?" buttons -->
+  <div id="tipBubble" class="tip-bubble" role="tooltip" hidden></div>
+
+  <footer class="footer">
+    <p data-i18n="footer"></p>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
