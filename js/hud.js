@@ -239,14 +239,15 @@ export function createHud() {
     el.hidden = false;
     el.innerHTML = `${icon('flame')}<b>${esc(flare.class)} solar flare</b> · ${esc(flare.date)} <span class="src-long">Source: NASA CCMC DONKI · archived NASA data</span><span class="src-short">· DONKI (archived)</span>`;
   }
-  function stormBanner(flare, power, show) {
+  function stormBanner(flare, power, show, radNote = '') {
     const el = $('stormBanner');
     if (!show) { el.hidden = true; return; }
     el.hidden = false;
     el.innerHTML = `<p class="sb-kicker">${icon('alert')} Solar storm warning</p>
       <h2>${esc(flare.class)} solar flare · ${esc(flare.date)}</h2>
       <p class="sb-label">${esc(flare.kid_label.replace(/!$/, ''))} · ${esc(power.label)}. Get inside the safe zone and reach the shelter!</p>
-      <p class="sb-source">${icon('database')} Source: NASA CCMC DONKI · archived NASA data (not live)</p>`;
+      <p class="sb-source">${icon('database')} Source: NASA CCMC DONKI · archived NASA data (not live)</p>
+      ${radNote ? `<p class="sb-source">${icon('rad')} ${esc(radNote)}</p>` : ''}`;
   }
 
   function leaderboard(rows) {

@@ -385,7 +385,7 @@ function updateExplore(dt) {
   if (!s.warned && s.t >= storm.schedule.warnAt) {
     s.warned = true; s.bannerT = 7;
     const f = storm.flare;
-    hud.stormBanner(f, storm.power, true);
+    hud.stormBanner(f, storm.power, true, `Radiation here is ${storm.radScale}× the Space Station level · NASA OSDR RadLab (archived)`);
     hud.flareChip(f);
     audio.sfx('alarm'); rig.shake(0.35);
     M.learn.storms.push(f);

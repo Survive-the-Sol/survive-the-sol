@@ -16,6 +16,15 @@ let timers = [];
 function clearTimers() { timers.forEach(clearInterval); timers = []; }
 
 const BAR_ICON = { power: 'power', life: 'life', rad: 'rad' };
+// Make hard words in a sentence clickable (they open a short explanation).
+function glossify(text) {
+  let out = text;
+  for (const word of Object.keys(GLOSSARY)) {
+    const re = new RegExp('\\b(' + word + ')\\b', 'i');
+    if (re.test(out)) out = out.replace(re, '[[' + word + ']]');
+  }
+  return richText(out);
+}
 function chips(effects) {
   return Object.entries(effects).map(([k, v]) =>
     `<span class="chip ${v > 0 ? 'up' : 'down'}">${icon(BAR_ICON[k])}${v > 0 ? '+' : '−'}${Math.abs(v)} <span class="sr">${BAR_NAMES[k]}</span></span>`).join('');
@@ -307,13 +316,14 @@ export function showBriefing(ctx, h) {
   const { cards, sol, total, level, bars, tutorial, seconds } = ctx;
   const cardHtml = cards.map((c, i) => {
     const mod = CARD_MODS[c.id];
-    return `<button class="plan-card panel" data-act="pick" data-arg="${c.id}" type="button">
+    // a div (not a <button>) so the hard-word buttons inside it are valid HTML
+    return `<div class="plan-card panel" data-act="pick" data-arg="${c.id}" role="button" tabindex="0" ${i === 0 ? 'autofocus' : ''} aria-label="Plan card ${i + 1}: ${esc(c.title)}">
       <span class="pc-key">${i + 1}</span>
       <h3>${esc(c.title)}</h3>
       <div class="chips">${chips(cardBarEffects(c))}</div>
       <p class="pc-mod"><b>This sol:</b> ${esc(mod.desc)}</p>
-      <p class="pc-sci"><b>${icon('bulb')} Real science:</b> ${esc(c.science)}</p>
-    </button>`;
+      <p class="pc-sci"><b>${icon('bulb')} Real science:</b> ${glossify(c.science)}</p>
+    </div>`;
   }).join('');
   open(`
   <div class="briefing">
@@ -329,6 +339,9 @@ export function showBriefing(ctx, h) {
     <p class="brief-timer">Auto-pick in <b id="briefTime">${seconds}</b> s · keys <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></p>
   </div>`, 'briefing-screen');
   bind(h);
+  el.querySelectorAll('.plan-card').forEach((c) => c.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); c.click(); }
+  }));
   let left = seconds;
   timers.push(setInterval(() => {
     left--;
