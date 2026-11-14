@@ -67,6 +67,7 @@
     $('solText').textContent = s.level.id === 'tutorial' ? t('sol0') : t('sol', { n: s.sol, total: s.level.days });
     $('scoreText').textContent = s.score;
     renderBars();
+    renderBase();
     renderRadNote();
     renderBanners();
     renderHand();
@@ -90,6 +91,30 @@
         '<div class="bar-fill" style="width:' + v + '%"></div></div></div>';
     }).join('');
     UI.prevBars = { power: s.bars.power, life: s.bars.life, rad: s.bars.rad };
+  }
+
+  // Crew faces show morale; the plant shows how well you cared for it.
+  var CREW = [
+    { key: 'crew_ayesha', avatar: '👩‍🚀', offset: 5 },
+    { key: 'crew_bilal', avatar: '👨‍🔧', offset: 0 },
+    { key: 'crew_zara', avatar: '👩‍⚕️', offset: -5 }
+  ];
+  function plantState(v) { return v > 60 ? 'great' : v > 30 ? 'ok' : v > 0 ? 'weak' : 'dead'; }
+  function renderBase() {
+    var s = UI.s;
+    var crew = CREW.map(function (c) {
+      var m = s.morale + c.offset;
+      var mood = m > 60 ? 'happy' : m > 30 ? 'ok' : 'sad';
+      var face = { happy: '😀', ok: '🙂', sad: '😟' }[mood];
+      return '<div class="crew-member" title="' + esc(t('mood_' + mood)) + '"><span class="face" aria-hidden="true">' + c.avatar + face + '</span>' +
+        '<span>' + esc(t(c.key)) + '<small>' + esc(t('mood_' + mood)) + '</small></span></div>';
+    }).join('');
+    var ps = plantState(s.plant);
+    var plantFace = { great: '🥬', ok: '🌿', weak: '🌱', dead: '🥀' }[ps];
+    var tired = s.morale < Game.LOW_MORALE ? '<span class="tired">' + esc(t('tiredNote')) + '</span>' : '';
+    $('basePanel').innerHTML = crew + tipButton('tip_morale') + tired +
+      '<div class="plant-box ' + ps + '"><span class="face" aria-hidden="true">' + plantFace + '</span><span>' + esc(t('plant')) +
+      ' ' + tipButton('tip_plant') + '<small>' + esc(t('plant_' + ps)) + ' (' + s.plant + '%)</small></span></div>';
   }
 
   // Shows how the RadLab data changes this level (Validity!).
@@ -296,12 +321,28 @@
   function updateCoach() {
     var s = UI.s;
     highlight(null);
-    if (s.level.commDelay) {
-      // Mars: Earth's message is about YESTERDAY, because messages are slow.
-      coach(UI.lastBars ? t('earth_msg', UI.lastBars) : t('earth_first'));
-    } else {
-      coach(null);
-    }
+    var lines = [roviTip(s)];
+    // Mars: Earth's message is about YESTERDAY, because messages are slow.
+    if (s.level.commDelay) lines.push(UI.lastBars ? t('earth_msg', UI.lastBars) : t('earth_first'));
+    coach(lines.join('\n'));
+    var c = $('coach');
+    c.classList.toggle('alert', s.nextEvent.type === 'flare' || s.nextEvent.type === 'dust');
+  }
+
+  // ROVI looks at tonight's event and your bars, and gives ONE helpful tip.
+  function roviTip(s) {
+    var ev = s.nextEvent.type, n = s.level.night;
+    if (ev === 'flare') return t('rovi_flare');
+    if (ev === 'dust') return t('rovi_dust');
+    if (n && s.sol === n.from - 1) return t('rovi_night_soon');
+    var low = Game.BARS.filter(function (b) { return s.bars[b] < 30; })
+      .sort(function (a, b) { return s.bars[a] - s.bars[b]; })[0];
+    if (low) return t('rovi_low_' + low);
+    if (Game.isNight(s)) return t('rovi_night');
+    if (ev === 'failure') return t('rovi_failure');
+    if (s.morale < Game.LOW_MORALE) return t('rovi_tired');
+    if (s.plant <= 30) return t('rovi_plant');
+    return t('rovi_ok_' + (1 + (s.sol % 3)));
   }
 
   // ---------- end screen ----------

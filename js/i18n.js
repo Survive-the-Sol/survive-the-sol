@@ -104,6 +104,30 @@
       earth_msg: '📡 Message from Earth (sent about 20 minutes ago, so it is old news!): "Yesterday your Power was {power}, Life Support {life}, Radiation Safety {rad}. Good luck, Commander!"',
       earth_first: '📡 Message from Earth: "Welcome to Mars! Our messages take about 20 minutes to reach you. You must make your own choices."',
 
+      // ROVI tips and warnings
+      rovi_flare: '⚠️ Beep! My sensors see the Sun getting very busy. A solar storm may hit tonight! Get the storm shelter ready or build shields.',
+      rovi_dust: '🌪️ Beep! A dust storm is coming tonight. Solar panels will be weak. Get power now!',
+      rovi_failure: '🔧 Beep! Some machines sound strange today. Keep your bars high, just in case.',
+      rovi_night_soon: '🌑 The long lunar night starts tomorrow. There will be no sunlight for days. Save up power!',
+      rovi_night: '🌑 It is the lunar night. Solar cards give only half power. Nuclear power works day and night!',
+      rovi_low_power: '⚡ Power is low! Fix the solar panels or start the nuclear generator.',
+      rovi_low_life: '💚 Life Support is low! Grow food, recycle water or make oxygen.',
+      rovi_low_rad: '🛡️ Radiation Safety is low! Build a shield wall or a water wall.',
+      rovi_tired: '😴 The crew is tired and works slower. Let them rest or call home.',
+      rovi_plant: '🌱 Our plant is wilting! Grow vegetables or recycle water to save it.',
+      rovi_ok_1: '😊 All looks good, Commander! Remember: every card has a cost.',
+      rovi_ok_2: '🔭 Tip: read the science fact at the bottom of each card. They are real!',
+      rovi_ok_3: '🔬 Science cards give points for your final rank. Do some when your bars are safe!',
+      // crew + plant
+      crew: 'Crew',
+      crew_ayesha: 'Captain Ayesha', crew_bilal: 'Engineer Bilal', crew_zara: 'Dr. Zara',
+      mood_happy: 'happy', mood_ok: 'okay', mood_sad: 'tired',
+      tiredNote: 'Tired crew: card gains are smaller!',
+      plant: 'Space lettuce',
+      tip_plant: 'Your base has a lettuce plant. It grows with water and power, and wilts if you forget it. NASA really grows lettuce on the ISS in a plant chamber called Veggie!',
+      tip_morale: 'Morale = how happy the crew feels. Tired, sad crews work slower. Rest, exercise and calls home help.',
+      plant_great: 'growing well', plant_ok: 'okay', plant_weak: 'thirsty', plant_dead: 'wilted',
+
       // NASA data notes
       rad_note_moon: '📊 Real NASA data (RadLab): radiation near the Moon is about {x} times stronger than on the Space Station, so Radiation Safety drops faster here.',
       rad_note_mars: '📊 Real NASA data (RadLab): radiation on the Mars surface is about {x} times stronger than on the Space Station, so Radiation Safety drops faster here.',
