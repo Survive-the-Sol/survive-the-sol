@@ -245,7 +245,7 @@ export function createHud() {
     el.hidden = false;
     el.innerHTML = `<p class="sb-kicker">${icon('alert')} Solar storm warning</p>
       <h2>${esc(flare.class)} solar flare · ${esc(flare.date)}</h2>
-      <p class="sb-label">${esc(flare.kid_label)} ${esc(power.label)}. Get inside the safe zone and reach the shelter!</p>
+      <p class="sb-label">${esc(flare.kid_label.replace(/!$/, ''))} · ${esc(power.label)}. Get inside the safe zone and reach the shelter!</p>
       <p class="sb-source">${icon('database')} Source: NASA CCMC DONKI · archived NASA data (not live)</p>`;
   }
 

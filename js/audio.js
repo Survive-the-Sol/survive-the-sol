@@ -9,11 +9,12 @@
 // =====================================================================
 
 let ctx = null, master = null, sfxBus = null, musicBus = null, noiseBuf = null;
-let volume = 0.7, musicOn = true, muted = false;
+let volume = 0.7, musicOn = true, muted = false, unlocked = false;   // no sound until the first click (browser rule)
 const loops = {};
 
 function ensure() {
   if (ctx) return ctx;
+  if (!unlocked) return null;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   ctx = new AC();
@@ -112,7 +113,12 @@ function playChord() {
 }
 
 export const audio = {
-  unlock() { if (ensure() && ctx.state === 'suspended') ctx.resume(); },
+  unlock() {
+    const first = !unlocked;
+    unlocked = true;
+    if (ensure() && ctx.state === 'suspended') ctx.resume();
+    if (first && musicOn) this.music(true);
+  },
   setVolume(v) { volume = v; applyVolume(); },
   setMuted(m) { muted = m; applyVolume(); },
   isMuted: () => muted,

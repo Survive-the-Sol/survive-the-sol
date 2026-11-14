@@ -55,7 +55,7 @@ export function createTutorial(rovi) {
     { text: 'Hi, I am ROVI! Every [[sol]] starts with a plan. Pick ONE card: it helps one bar but costs another.', done: (c) => c.phase !== 'briefing' },
     { text: 'You are in the lander! Press [Space] (or JUMP) to jump out.', done: (c) => c.playerMode !== 'lander' },
     { text: 'Steer your thrusters with [W] [A] [S] [D]. Land near glowing supplies or a hut!', done: (c) => c.phase === 'explore' && c.playerMode === 'walk' },
-    { text: 'Walk with [W] [A] [S] [D] and drag the mouse to look around. Hold [Shift] to sprint.', done: (c) => c.moved > 18 },
+    { text: 'Walk with [W] [A] [S] [D] and drag the mouse to look around. Hold [Shift] to sprint.', done: (c) => c.moved > 12 },
     { text: 'See the glowing beams? Walk into a supply to put it in your backpack.', done: (c) => c.collected > 0 },
     { text: 'Press [Tab] (or BAG) to open your backpack. It has only a few slots, so choose well!', done: (c) => c.bagOpened },
     { text: 'Press [1] to use the item in slot 1. Use supplies when a bar gets low.', done: (c) => c.used > 0 },
