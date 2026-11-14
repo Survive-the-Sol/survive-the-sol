@@ -362,18 +362,139 @@
     if (s.level.id === 'tutorial') {
       html = '<h2>' + esc(t('tutorialDone_t')) + '</h2><p class="big-text">' + esc(t('tutorialDone')) + '</p>' +
         '<button id="goMoon" class="btn primary big-btn" type="button">' + esc(t('startMoon')) + '</button>';
-    } else if (s.won) {
-      html = '<h2>' + esc(t('win_t')) + '</h2><p class="big-text">' + esc(t('win', { n: s.level.days, name: UI.name })) + '</p>';
     } else {
-      html = '<h2>' + esc(t('lose_t', { n: s.sol })) + '</h2>' +
-        '<p class="big-text">' + esc(failReason(s.fail)) + '</p>' +
-        '<p class="tip-box">' + esc(t('tip_fail_' + s.fail.bar)) + '</p>';
+      if (s.won) {
+        html = '<h2>' + esc(t('win_t')) + '</h2><p class="big-text">' + esc(t('win', { n: s.level.days, name: UI.name })) + '</p>';
+      } else {
+        html = '<h2>' + esc(t('lose_t', { n: s.sol })) + '</h2>' +
+          '<p class="big-text">' + esc(failReason(s.fail)) + '</p>' +
+          '<p class="tip-box">' + esc(t('tip_fail_' + s.fail.bar)) + '</p>';
+      }
+      var rank = Game.rank(s);
+      html += '<p><span class="rank-badge">' + esc(t('paper_rank', { rank: t('rank_' + rank) })) + '</span></p>' +
+        '<p class="note">' + esc(t('rank_info')) + '</p>' +
+        '<div class="end-grid"><div class="paper-wrap">' +
+        '<canvas id="paper" width="800" height="1040" role="img" aria-label="' + esc(paperHeadline(s)) + '"></canvas>' +
+        '<div class="actions"><button id="downloadBtn" class="btn primary" type="button">' + esc(t('download')) + '</button></div></div>' +
+        '<div class="debrief"><h3>' + esc(t('debrief_title')) + '</h3><ul>' +
+        Game.debrief(s).map(function (d) { return '<li>' + esc(t('db_' + d.key)) + '</li>'; }).join('') +
+        '</ul></div></div>';
     }
     $('endContent').innerHTML = html;
     show('screen-end');
+    if ($('paper')) {
+      var draw = function () { drawNewspaper($('paper'), s); };
+      draw();
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+      $('downloadBtn').addEventListener('click', downloadPaper);
+    }
     var goMoon = $('goMoon');
     if (goMoon) { goMoon.addEventListener('click', function () { startLevel('moon'); }); goMoon.focus(); }
     else $('againBtn').focus();
+  }
+
+  // ---------- newspaper (drawn on a canvas so it can be saved as PNG) ----------
+  function daysSurvived(s) { return s.won ? s.level.days : s.sol - 1; }
+  function paperHeadline(s) {
+    var p = { name: UI.name.toUpperCase(), place: t('place_' + s.level.id), n: daysSurvived(s) };
+    return s.won ? t('paper_hl_win', p) : t('paper_hl_lose', p);
+  }
+  function flareStrength(cls) {
+    var order = { X: 3, M: 2, C: 1 };
+    return (order[cls.charAt(0)] || 0) * 100 + parseFloat(cls.slice(1) || 0);
+  }
+  function biggestFlare(s) {
+    var best = null;
+    s.log.forEach(function (r) {
+      if (r.event.type === 'flare' && (!best || flareStrength(r.event.flare['class']) > flareStrength(best['class']))) best = r.event.flare;
+    });
+    return best;
+  }
+  // Writes text that wraps onto new lines. Returns the y after the last line.
+  function wrapText(ctx, text, x, y, maxW, lineH) {
+    var words = String(text).split(' '), line = '';
+    for (var i = 0; i < words.length; i++) {
+      var test = line ? line + ' ' + words[i] : words[i];
+      if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, y); line = words[i]; y += lineH; }
+      else line = test;
+    }
+    if (line) { ctx.fillText(line, x, y); y += lineH; }
+    return y;
+  }
+  function drawNewspaper(cv, s) {
+    var ctx = cv.getContext('2d'), W = cv.width, H = cv.height, M = 48;
+    var ur = I18N.lang === 'ur';
+    var serif = ur ? '"Noto Nastaliq Urdu", serif' : 'Georgia, "Times New Roman", serif';
+    var round = ur ? '"Noto Nastaliq Urdu", serif' : '"Baloo 2", Arial, sans-serif';
+    ctx.direction = ur ? 'rtl' : 'ltr';
+    ctx.textAlign = 'center';
+    // paper
+    ctx.fillStyle = '#f3ead7'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#2b2b2b'; ctx.lineWidth = 3; ctx.strokeRect(18, 18, W - 36, H - 36);
+    // masthead
+    ctx.fillStyle = '#1b1b1b';
+    ctx.font = 'bold 66px ' + serif; ctx.fillText(t('paper_name'), W / 2, 110);
+    ctx.font = 'italic 22px ' + serif;
+    ctx.fillText(t('paper_tag') + ' · ' + t('lvl_' + s.level.id) + ' · ' + t('sol', { n: s.sol, total: s.level.days }), W / 2, 148);
+    ctx.fillRect(M, 166, W - 2 * M, 4); ctx.fillRect(M, 174, W - 2 * M, 1.5);
+    // headline
+    ctx.font = 'bold 44px ' + serif;
+    var y = wrapText(ctx, paperHeadline(s), W / 2, 240, W - 2 * M, 54);
+    // rank badge
+    var rank = t('paper_rank', { rank: t('rank_' + Game.rank(s)) }) + ' ⭐';
+    ctx.font = 'bold 30px ' + round;
+    var bw = ctx.measureText(rank).width + 50;
+    ctx.fillStyle = '#ffd447'; ctx.fillRect(W / 2 - bw / 2, y - 6, bw, 52);
+    ctx.fillStyle = '#1b1b1b'; ctx.fillText(rank, W / 2, y + 32);
+    y += 80;
+    // "photo": the crew and the plant at the base
+    var ph = 250;
+    ctx.fillStyle = s.level.id === 'mars' ? '#8a3b22' : '#2c3150';
+    ctx.fillRect(M, y, W - 2 * M, ph);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(M, y, W - 2 * M, ph); ctx.clip();
+    ctx.fillStyle = s.level.id === 'mars' ? '#c56a3f' : '#9aa0b4';
+    ctx.beginPath(); ctx.ellipse(W / 2, y + ph + 60, W / 1.5, 120, 0, Math.PI, 2 * Math.PI); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#1b1b1b';
+    ctx.font = '84px serif';
+    ctx.fillText('👩‍🚀 👨‍🔧 👩‍⚕️', W / 2 - 70, y + 160);
+    var ps = { great: '🥬', ok: '🌿', weak: '🌱', dead: '🥀' }[plantState(s.plant)];
+    ctx.fillText(ps, W / 2 + 250, y + 160);
+    ctx.font = '44px serif'; ctx.fillText(s.level.id === 'mars' ? '🔴' : '🌙', W - M - 44, y + 60);
+    y += ph + 34;
+    ctx.font = 'italic 20px ' + serif; ctx.fillStyle = '#333';
+    ctx.fillText(t('paper_crew'), W / 2, y); y += 54;
+    // stats
+    var stats = [
+      [t('paper_days'), daysSurvived(s) + ' / ' + s.level.days],
+      [t('paper_science'), String(s.score)],
+      [t('paper_storms'), String(s.log.filter(function (r) { return r.event.type === 'flare'; }).length)],
+      [t('paper_plant'), ps + ' ' + s.plant + '%']
+    ];
+    var colW = (W - 2 * M) / 4;
+    stats.forEach(function (st, i) {
+      var cx = ur ? W - M - colW * (i + 0.5) : M + colW * (i + 0.5);
+      ctx.fillStyle = '#1b1b1b'; ctx.font = 'bold 34px ' + round; ctx.fillText(st[1], cx, y + 10);
+      ctx.fillStyle = '#444'; ctx.font = '19px ' + round; ctx.fillText(st[0], cx, y + 44);
+    });
+    y += 92;
+    ctx.fillStyle = '#1b1b1b'; ctx.fillRect(M, y - 20, W - 2 * M, 1.5);
+    // story
+    var big = biggestFlare(s);
+    ctx.font = '25px ' + serif; ctx.fillStyle = '#1b1b1b';
+    y = wrapText(ctx, big ? t('paper_biggest', { cls: big['class'], date: big.date }) : t('paper_nostorm'), W / 2, y + 16, W - 2 * M - 20, 34);
+    y = wrapText(ctx, s.won ? t('win', { n: s.level.days, name: UI.name }) : failReason(s.fail), W / 2, y + 6, W - 2 * M - 20, 34);
+    // footer
+    ctx.font = '17px ' + round; ctx.fillStyle = '#555';
+    ctx.fillText(t('paper_footer'), W / 2, H - 52);
+    ctx.fillText('Survive the Sol · TechNest Thinkers · NASA Space Apps 2026', W / 2, H - 28);
+  }
+  function downloadPaper() {
+    var a = document.createElement('a');
+    a.download = 'sol-times-' + (UI.name || 'commander').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.png';
+    a.href = $('paper').toDataURL('image/png');
+    document.body.appendChild(a); a.click(); a.remove();
   }
 
   // ---------- "?" tooltips (hover, tap or keyboard) ----------
