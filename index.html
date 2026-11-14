@@ -1,112 +1,176 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Survive the Sol – Junior Astronaut Mission Trainer</title>
-  <meta name="description" content="A kids' game (ages 7–12) about keeping a Moon and Mars base alive, using real archived NASA solar flare data.">
+  <meta name="description" content="A browser game for kids (ages 7–12): keep a Moon and Mars base alive for 12 days using real archived NASA solar flare and radiation data.">
+  <meta name="theme-color" content="#0b1026">
+  <link rel="icon" href="assets/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <!-- To play locally: run "python -m http.server 8000" in this folder, then open http://localhost:8000
        (Double-clicking this file will NOT work, because the game loads JSON with fetch().) -->
 </head>
 <body>
   <a class="skip" href="#main">Skip to game</a>
+
+  <!-- Background: twinkling stars + screen effects (night, dust, flare flash) -->
+  <div class="starfield" aria-hidden="true"><div class="stars s1"></div><div class="stars s2"></div><div class="stars s3"></div></div>
   <div class="fx-layer" aria-hidden="true"></div>
 
+  <!-- ============ HEADER ============ -->
   <header class="topbar">
-    <div class="logo"><span aria-hidden="true">☀️🚀</span> <span data-i18n="title">Survive the Sol</span></div>
-    <button id="langBtn" class="btn small" type="button">اردو</button>
+    <button id="brandBtn" class="brand" type="button" aria-label="Survive the Sol – back to start">
+      <span class="logo-mark">
+        <!-- Team mission patch. If assets/logo.png is missing, the SVG patch below is shown instead. -->
+        <img src="assets/logo.png" alt="" width="44" height="44" onerror="this.remove()">
+        <svg class="logo-fallback" viewBox="0 0 48 48" aria-hidden="true">
+          <circle cx="24" cy="24" r="22" fill="#141a3a" stroke="#e8f22a" stroke-width="2.5"/>
+          <circle cx="24" cy="24" r="8" fill="#ff8f5a"/>
+          <ellipse cx="24" cy="24" rx="17" ry="6" fill="none" stroke="#7cf5c8" stroke-width="2" transform="rotate(-25 24 24)"/>
+          <circle cx="36" cy="12" r="1.6" fill="#fff"/><circle cx="12" cy="34" r="1.2" fill="#fff"/>
+        </svg>
+      </span>
+      <span class="wordmark"><strong>Survive the Sol</strong><small>Junior Astronaut Mission Trainer</small></span>
+    </button>
+    <div class="hud-meta">
+      <span id="hudMission" class="meta-chip" hidden></span>
+      <span id="hudSol" class="meta-chip sol-chip" hidden></span>
+      <button id="soundBtn" class="btn btn-ghost btn-icon" type="button" aria-pressed="true"></button>
+    </div>
   </header>
 
   <main id="main">
-    <!-- ============ TITLE SCREEN ============ -->
+    <!-- ============ START SCREEN ============ -->
     <section id="screen-title" class="screen">
-      <h1 data-i18n="title">Survive the Sol</h1>
-      <p class="tagline" data-i18n="tagline"></p>
-      <p class="intro" data-i18n="intro"></p>
-      <label class="name-label" for="playerName" data-i18n="nameLabel"></label>
-      <input id="playerName" type="text" maxlength="20" autocomplete="off" data-i18n-ph="namePlaceholder">
-      <h2 data-i18n="chooseMission"></h2>
-      <div class="levels">
-        <button class="level-btn" data-level="tutorial" type="button">
-          <span class="big" aria-hidden="true">🎓</span>
-          <strong data-i18n="lvl_tutorial"></strong><small data-i18n="lvl_tutorial_d"></small>
-        </button>
-        <button class="level-btn" data-level="moon" type="button">
-          <span class="big" aria-hidden="true">🌙</span>
-          <strong data-i18n="lvl_moon"></strong><small data-i18n="lvl_moon_d"></small>
-        </button>
-        <button class="level-btn" data-level="mars" type="button">
-          <span class="big" aria-hidden="true">🔴</span>
-          <strong data-i18n="lvl_mars"></strong><small data-i18n="lvl_mars_d"></small>
-        </button>
-      </div>
-      <p id="loadMsg" class="note" role="status"></p>
-    </section>
-
-    <!-- ============ GAME SCREEN ============ -->
-    <section id="screen-game" class="screen" hidden>
-      <div class="status-row">
-        <h2 id="levelName" class="level-name"></h2>
-        <div class="sol-box"><span id="solText"></span> <button class="tip" type="button" data-tip="tip_sol">?</button></div>
-        <div class="score-box"><span aria-hidden="true">🔬</span> <span data-i18n="score"></span>: <b id="scoreText">0</b>
-          <button class="tip" type="button" data-tip="tip_score">?</button></div>
-      </div>
-
-      <!-- ROVI the robot helper: tutorial steps, tips and storm warnings -->
-      <div id="coach" class="coach" hidden>
-        <div class="coach-avatar" aria-hidden="true">🤖</div>
-        <div class="coach-body">
-          <strong class="coach-name">ROVI</strong>
-          <p id="coachText" aria-live="polite"></p>
-          <button id="coachNext" class="btn small primary" type="button" hidden></button>
+      <div class="hero glass">
+        <div class="hero-patch logo-mark" aria-hidden="true">
+          <img src="assets/logo.png" alt="" width="128" height="128" onerror="this.remove()">
+          <svg class="logo-fallback" viewBox="0 0 48 48">
+            <circle cx="24" cy="24" r="22" fill="#141a3a" stroke="#e8f22a" stroke-width="2"/>
+            <circle cx="24" cy="24" r="8" fill="#ff8f5a"/>
+            <ellipse cx="24" cy="24" rx="17" ry="6" fill="none" stroke="#7cf5c8" stroke-width="1.6" transform="rotate(-25 24 24)"/>
+            <circle cx="36" cy="12" r="1.4" fill="#fff"/><circle cx="12" cy="34" r="1" fill="#fff"/>
+          </svg>
+        </div>
+        <div class="hero-text">
+          <p class="eyebrow">NASA Space Apps Challenge 2026</p>
+          <h1>Survive the Sol</h1>
+          <p class="pitch" data-s="pitch"></p>
+          <div class="hero-actions">
+            <div class="field">
+              <label for="playerName" data-s="nameLabel"></label>
+              <input id="playerName" type="text" maxlength="20" autocomplete="off" data-s-ph="namePlaceholder">
+            </div>
+            <button id="startBtn" class="btn btn-primary btn-lg level-btn" data-level="tutorial" type="button"></button>
+          </div>
+          <p id="loadMsg" class="caption" role="status"></p>
         </div>
       </div>
 
-      <div id="bars" class="bars" aria-live="polite"></div>
-
-      <!-- Crew faces (morale) and the space plant -->
-      <div id="basePanel" class="base-panel"></div>
-      <p id="radNote" class="data-note"></p>
-      <div id="banners" class="banners" aria-live="polite"></div>
-
-      <p id="pickText" class="pick-text" aria-live="polite"></p>
-      <div id="hand" class="hand"></div>
-      <div class="actions">
-        <button id="endDayBtn" class="btn primary big-btn" type="button" data-i18n="endDay"></button>
+      <h2 class="section-title" data-s="chooseMission"></h2>
+      <div class="missions">
+        <button class="mission-card glass level-btn" data-level="tutorial" type="button"></button>
+        <button class="mission-card glass level-btn" data-level="moon" type="button"></button>
+        <button class="mission-card glass level-btn" data-level="mars" type="button"></button>
       </div>
-      <p class="note center" data-i18n="keysHelp"></p>
+    </section>
+
+    <!-- ============ GAME SCREEN (HUD) ============ -->
+    <section id="screen-game" class="screen" hidden>
+      <div id="bars" class="gauges"></div>
+
+      <div class="hud-grid">
+        <section class="ops glass" aria-labelledby="opsTitle">
+          <div class="ops-head">
+            <h2 id="opsTitle"></h2>
+            <div class="ops-meta">
+              <span id="selCount" class="pill" aria-live="polite"></span>
+              <span class="pill pill-science"><span id="scoreIcon"></span><span data-s="score"></span> <b id="scoreText">0</b>
+                <button class="tip" type="button" data-tip="tip_score" aria-label="Science – what does this mean?">?</button></span>
+            </div>
+          </div>
+          <div id="hand" class="hand"></div>
+          <div class="ops-foot">
+            <p id="pickText" class="caption" aria-live="polite"></p>
+            <button id="endDayBtn" class="btn btn-primary btn-lg" type="button"></button>
+          </div>
+          <p class="caption keys" data-s="keysHelp"></p>
+        </section>
+
+        <aside class="side">
+          <!-- ROVI the robot helper: tutorial steps, tips and storm warnings -->
+          <section id="coach" class="panel glass coach">
+            <div class="rovi-avatar" aria-hidden="true">
+              <svg viewBox="0 0 64 64">
+                <line x1="32" y1="6" x2="32" y2="14" stroke="#b4bde3" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="32" cy="6" r="4" fill="#e8f22a"/>
+                <rect x="10" y="14" width="44" height="34" rx="12" fill="#e9eeff"/>
+                <rect x="16" y="21" width="32" height="18" rx="9" fill="#141a3a"/>
+                <circle class="rovi-eye" cx="25" cy="30" r="4" fill="#7cf5c8"/>
+                <circle class="rovi-eye" cx="39" cy="30" r="4" fill="#7cf5c8"/>
+                <rect x="20" y="50" width="24" height="8" rx="4" fill="#4f7bff"/>
+              </svg>
+            </div>
+            <div class="coach-body">
+              <h3 class="panel-title" data-s="panel_rovi"></h3>
+              <p id="coachText" aria-live="polite"></p>
+              <p id="earthText" class="earth-msg" hidden></p>
+              <button id="coachNext" class="btn btn-primary btn-sm" type="button" hidden></button>
+            </div>
+          </section>
+
+          <section class="panel glass">
+            <h3 class="panel-title" data-s="conditions"></h3>
+            <div id="conditions" class="conditions" aria-live="polite"></div>
+          </section>
+
+          <section class="panel glass">
+            <h3 class="panel-title"><span data-s="panel_crew"></span>
+              <button class="tip" type="button" data-tip="tip_morale" aria-label="Crew morale – what does this mean?">?</button></h3>
+            <div id="crewPanel" class="crew"></div>
+          </section>
+
+          <section class="panel glass">
+            <h3 class="panel-title"><span data-s="panel_plant"></span>
+              <button class="tip" type="button" data-tip="tip_plant" aria-label="Space lettuce – what does this mean?">?</button></h3>
+            <div id="plantPanel" class="plant"></div>
+          </section>
+
+          <section class="panel glass">
+            <h3 class="panel-title" data-s="panel_data"></h3>
+            <div id="dataPanel" class="data-panel"></div>
+          </section>
+        </aside>
+      </div>
     </section>
 
     <!-- ============ END SCREEN ============ -->
     <section id="screen-end" class="screen" hidden>
       <div id="endContent"></div>
-      <div class="actions">
-        <button id="againBtn" class="btn primary" type="button" data-i18n="playAgain"></button>
-        <button id="menuBtn" class="btn" type="button" data-i18n="backToMenu"></button>
-      </div>
     </section>
   </main>
 
   <!-- Pop-up for end-of-day events -->
   <dialog id="modal" aria-labelledby="modalTitle">
     <div id="modalBody"></div>
-    <div class="actions"><button id="modalBtn" class="btn primary" type="button"></button></div>
+    <div class="modal-actions"><button id="modalBtn" class="btn btn-primary btn-lg" type="button"></button></div>
   </dialog>
 
   <!-- Tooltip bubble for "?" buttons -->
   <div id="tipBubble" class="tip-bubble" role="tooltip" hidden></div>
 
   <footer class="footer">
-    <p data-i18n="footer"></p>
-    <p data-i18n="footer_more"></p>
-    <p id="marsCredit" class="mars-credit" data-i18n="mars_credit" hidden></p>
+    <p data-s="footer"></p>
+    <p id="marsCredit" data-s="mars_credit" hidden></p>
   </footer>
 
-  <script src="js/i18n.js"></script>
+  <script src="js/strings.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/sound.js"></script>
   <script src="js/data.js"></script>
   <script src="js/game.js"></script>
   <script src="js/ui.js"></script>

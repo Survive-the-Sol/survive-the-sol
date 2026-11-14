@@ -265,6 +265,22 @@
     return rep;
   }
 
+  // Save / restore the day's numbers, so the player can un-select a card
+  // before pressing "End Day".
+  function snapshot(s) {
+    return {
+      bars: { power: s.bars.power, life: s.bars.life, rad: s.bars.rad },
+      morale: s.morale, plant: s.plant, score: s.score, shelter: s.shelter,
+      picksLeft: s.picksLeft, playedToday: s.playedToday.slice(), historyLength: s.history.length
+    };
+  }
+  function restore(s, snap) {
+    s.bars = { power: snap.bars.power, life: snap.bars.life, rad: snap.bars.rad };
+    s.morale = snap.morale; s.plant = snap.plant; s.score = snap.score; s.shelter = snap.shelter;
+    s.picksLeft = snap.picksLeft; s.playedToday = snap.playedToday.slice();
+    s.history.length = snap.historyLength;
+  }
+
   // Rank for the newspaper: Cadet / Pilot / Commander.
   function rank(s) {
     if (!s.won) return 'cadet';
@@ -292,7 +308,7 @@
     BARS: BARS, LEVELS: LEVELS, LOW_MORALE: LOW_MORALE,
     newGame: newGame, dealHand: dealHand, canPlay: canPlay, playCard: playCard,
     cardEffects: cardEffects, endDay: endDay, isNight: isNight, isDusty: isDusty,
-    rank: rank, debrief: debrief, findCard: findCard
+    rank: rank, debrief: debrief, findCard: findCard, snapshot: snapshot, restore: restore
   };
   root.Game = Game;
   if (typeof module !== 'undefined' && module.exports) module.exports = Game;

@@ -1,173 +1,152 @@
 {
-  "_note": "Action cards for Survive the Sol. effects: power / life / rad = the 3 bars, score = science points, morale = crew mood, plant = space plant health. Every card has a cost. 'solar': true means the card gives less power in the lunar night or a dust storm. 'shelter': true protects the crew from the next solar flare (halves the hit).",
+  "_note": "Action cards for Survive the Sol. effects: power / life / rad = the 3 bars, score = science points, morale = crew mood, plant = space plant health. Every card has a cost. 'icon' is a name from js/icons.js. 'solar': true means the card gives less power in the lunar night or a dust storm. 'shelter': true protects the crew from the next solar flare (halves the hit).",
   "cards": [
     {
-      "id": "shield_wall", "emoji": "🧱", "levels": ["moon", "mars"],
-      "title": "Build a shield wall", "title_ur": "حفاظتی دیوار بنائیں",
-      "desc": "Pile soil around the base.", "desc_ur": "اڈے کے گرد مٹی کا ڈھیر لگائیں۔",
+      "id": "shield_wall", "icon": "wall", "levels": ["moon", "mars"],
+      "title": "Build a shield wall",
+      "desc": "Pile soil around the base.",
       "effects": { "rad": 15, "power": -8 },
-      "science": "Thick layers of Moon or Mars soil (regolith) can block a lot of radiation. NASA studies using it to cover bases.",
-      "science_ur": "چاند یا مریخ کی مٹی کی موٹی تہہ بہت سی تابکاری روک سکتی ہے۔"
+      "science": "Thick layers of Moon or Mars soil (regolith) can block a lot of radiation. NASA studies using it to cover bases."
     },
     {
-      "id": "water_wall", "emoji": "💧", "levels": ["moon", "mars"],
-      "title": "Make a water wall", "title_ur": "پانی کی دیوار بنائیں",
-      "desc": "Move water tanks around the beds.", "desc_ur": "پانی کی ٹنکیاں بستروں کے گرد رکھیں۔",
+      "id": "water_wall", "icon": "droplet", "levels": ["moon", "mars"],
+      "title": "Make a water wall",
+      "desc": "Move water tanks around the beds.",
       "effects": { "rad": 12, "life": -8 },
-      "science": "Water is very good at stopping radiation, so space bases can keep their water in the walls.",
-      "science_ur": "پانی تابکاری روکنے میں بہت اچھا ہے۔"
+      "science": "Water is very good at stopping radiation, so space bases can keep their water in the walls."
     },
     {
-      "id": "storm_shelter", "emoji": "🛡️", "levels": ["moon", "mars"], "shelter": true,
-      "title": "Get the storm shelter ready", "title_ur": "طوفان کی پناہ گاہ تیار کریں",
-      "desc": "Next solar storm hits only half as hard.", "desc_ur": "اگلا شمسی طوفان آدھا اثر کرے گا۔",
+      "id": "storm_shelter", "icon": "shieldCheck", "levels": ["moon", "mars"], "shelter": true,
+      "title": "Get the storm shelter ready",
+      "desc": "Next solar storm hits only half as hard.",
       "effects": { "rad": 4, "power": -5, "score": -3 },
-      "science": "On NASA's Orion spacecraft, astronauts can build a small shelter out of supply bags during a solar storm.",
-      "science_ur": "ناسا کے اورائن خلائی جہاز میں خلاباز سامان کے تھیلوں سے پناہ گاہ بنا سکتے ہیں۔"
+      "science": "On NASA's Orion spacecraft, astronauts can build a small shelter out of supply bags during a solar storm."
     },
     {
-      "id": "dosimeter", "emoji": "📟", "levels": ["moon", "mars"],
-      "title": "Check radiation badges", "title_ur": "تابکاری بیج چیک کریں",
-      "desc": "Find the safest rooms to work in.", "desc_ur": "کام کے لیے محفوظ ترین کمرے ڈھونڈیں۔",
+      "id": "dosimeter", "icon": "gauge", "levels": ["moon", "mars"],
+      "title": "Check radiation badges",
+      "desc": "Find the safest rooms to work in.",
       "effects": { "rad": 8, "power": -3, "score": -2 },
-      "science": "Astronauts wear small radiation meters called dosimeters to keep track of their radiation dose.",
-      "science_ur": "خلاباز ڈوزی میٹر نامی چھوٹے آلے پہنتے ہیں۔"
+      "science": "Astronauts wear small radiation meters called dosimeters to keep track of their radiation dose."
     },
     {
-      "id": "fix_solar", "emoji": "☀️", "levels": ["moon", "mars"], "solar": true,
-      "title": "Fix the solar panels", "title_ur": "سولر پینل ٹھیک کریں",
-      "desc": "A spacewalk to repair panels.", "desc_ur": "پینل ٹھیک کرنے کے لیے باہر جائیں۔",
+      "id": "fix_solar", "icon": "sun", "levels": ["moon", "mars"], "solar": true,
+      "title": "Fix the solar panels",
+      "desc": "A spacewalk to repair panels.",
       "effects": { "power": 16, "life": -4, "rad": -2 },
-      "science": "The International Space Station gets its electricity from huge solar arrays.",
-      "science_ur": "خلائی اسٹیشن اپنی بجلی بڑے سولر پینلز سے حاصل کرتا ہے۔"
+      "science": "The International Space Station gets its electricity from huge solar arrays."
     },
     {
-      "id": "clean_dust", "emoji": "🧹", "levels": ["mars"], "solar": true,
-      "title": "Sweep dust off panels", "title_ur": "پینلز سے گرد صاف کریں",
-      "desc": "Clean panels give more power.", "desc_ur": "صاف پینل زیادہ بجلی دیتے ہیں۔",
+      "id": "clean_dust", "icon": "brush", "levels": ["mars"], "solar": true,
+      "title": "Sweep dust off panels",
+      "desc": "Clean panels give more power.",
       "effects": { "power": 18, "rad": -5 },
-      "science": "The Mars rovers Spirit and Opportunity got extra power when wind blew dust off their solar panels.",
-      "science_ur": "مریخ کی گاڑیوں کو اس وقت زیادہ بجلی ملی جب ہوا نے پینلز سے گرد اڑا دی۔"
+      "science": "The Mars rovers Spirit and Opportunity got extra power when wind blew dust off their solar panels."
     },
     {
-      "id": "nuclear", "emoji": "⚛️", "levels": ["moon", "mars"],
-      "title": "Start the small nuclear generator", "title_ur": "چھوٹا جوہری جنریٹر چلائیں",
-      "desc": "Lots of power, day and night.", "desc_ur": "دن رات بہت سی بجلی۔",
+      "id": "nuclear", "icon": "atom", "levels": ["moon", "mars"],
+      "title": "Start the small nuclear generator",
+      "desc": "Lots of power, day and night.",
       "effects": { "power": 20, "rad": -6 },
-      "science": "In 2018 NASA's Kilopower (KRUSTY) test showed a small nuclear reactor could one day power a base on the Moon or Mars.",
-      "science_ur": "2018 میں ناسا کے کلو پاور تجربے نے دکھایا کہ چھوٹا ری ایکٹر اڈے کو بجلی دے سکتا ہے۔"
+      "science": "In 2018 NASA's Kilopower (KRUSTY) test showed a small nuclear reactor could one day power a base on the Moon or Mars."
     },
     {
-      "id": "power_save", "emoji": "💡", "levels": ["moon", "mars"],
-      "title": "Turn off extra lights", "title_ur": "فالتو بتیاں بند کریں",
-      "desc": "Save power, but the crew feels gloomy.", "desc_ur": "بجلی بچے گی مگر عملہ اداس ہوگا۔",
+      "id": "power_save", "icon": "lightbulb", "levels": ["moon", "mars"],
+      "title": "Turn off extra lights",
+      "desc": "Save power, but the crew feels gloomy.",
       "effects": { "power": 9, "morale": -10 },
-      "science": "Spacecraft switch off machines they do not need, so the power lasts longer.",
-      "science_ur": "خلائی جہاز غیر ضروری مشینیں بند کر کے بجلی بچاتے ہیں۔"
+      "science": "Spacecraft switch off machines they do not need, so the power lasts longer."
     },
     {
-      "id": "veg", "emoji": "🥬", "levels": ["moon", "mars"],
-      "title": "Grow vegetables", "title_ur": "سبزیاں اگائیں",
-      "desc": "Fresh food and a happy plant.", "desc_ur": "تازہ کھانا اور خوش پودا۔",
+      "id": "veg", "icon": "leaf", "levels": ["moon", "mars"],
+      "title": "Grow vegetables",
+      "desc": "Fresh food and a happy plant.",
       "effects": { "life": 14, "power": -8, "plant": 30 },
-      "science": "Astronauts grow lettuce on the ISS in a small plant chamber called Veggie.",
-      "science_ur": "خلاباز خلائی اسٹیشن پر ویجی نامی خانے میں سلاد اگاتے ہیں۔"
+      "science": "Astronauts grow lettuce on the ISS in a small plant chamber called Veggie."
     },
     {
-      "id": "recycle_water", "emoji": "♻️", "levels": ["moon", "mars"],
-      "title": "Recycle water", "title_ur": "پانی دوبارہ صاف کریں",
-      "desc": "Clean used water to drink again.", "desc_ur": "استعمال شدہ پانی کو پینے کے قابل بنائیں۔",
+      "id": "recycle_water", "icon": "recycle", "levels": ["moon", "mars"],
+      "title": "Recycle water",
+      "desc": "Clean used water to drink again.",
       "effects": { "life": 12, "power": -6, "plant": 10 },
-      "science": "The ISS recycles about 98% of its water, even water from sweat and urine!",
-      "science_ur": "خلائی اسٹیشن تقریباً 98 فیصد پانی دوبارہ استعمال کرتا ہے۔"
+      "science": "The ISS recycles about 98% of its water, even water from sweat and urine!"
     },
     {
-      "id": "oxygen", "emoji": "⚗️", "levels": ["moon", "mars"],
-      "title": "Make oxygen from water", "title_ur": "پانی سے آکسیجن بنائیں",
-      "desc": "Split water into air to breathe.", "desc_ur": "پانی کو سانس کی ہوا میں بدلیں۔",
+      "id": "oxygen", "icon": "testTube", "levels": ["moon", "mars"],
+      "title": "Make oxygen from water",
+      "desc": "Split water into air to breathe.",
       "effects": { "life": 12, "power": -8 },
-      "science": "On the ISS, a machine uses electricity to split water into oxygen (to breathe) and hydrogen.",
-      "science_ur": "خلائی اسٹیشن پر ایک مشین بجلی سے پانی کو آکسیجن اور ہائیڈروجن میں توڑتی ہے۔"
+      "science": "On the ISS, a machine uses electricity to split water into oxygen (to breathe) and hydrogen."
     },
     {
-      "id": "fix_air", "emoji": "🌬️", "levels": ["moon", "mars"],
-      "title": "Fix the air filter", "title_ur": "ہوا کا فلٹر ٹھیک کریں",
-      "desc": "Remove bad air (carbon dioxide).", "desc_ur": "خراب ہوا (کاربن ڈائی آکسائیڈ) نکالیں۔",
+      "id": "fix_air", "icon": "wind", "levels": ["moon", "mars"],
+      "title": "Fix the air filter",
+      "desc": "Remove bad air (carbon dioxide).",
       "effects": { "life": 10, "power": -4, "score": -2 },
-      "science": "The ISS has machines that pull carbon dioxide, the gas we breathe out, from the cabin air.",
-      "science_ur": "خلائی اسٹیشن کی مشینیں ہوا سے کاربن ڈائی آکسائیڈ نکالتی ہیں۔"
+      "science": "The ISS has machines that pull carbon dioxide, the gas we breathe out, from the cabin air."
     },
     {
-      "id": "ice_mining", "emoji": "🧊", "levels": ["moon"],
-      "title": "Dig for ice in a dark crater", "title_ur": "تاریک گڑھے میں برف کھودیں",
-      "desc": "Ice gives water, but it is far away.", "desc_ur": "برف سے پانی ملتا ہے مگر وہ دور ہے۔",
+      "id": "ice_mining", "icon": "snowflake", "levels": ["moon"],
+      "title": "Dig for ice in a dark crater",
+      "desc": "Ice gives water, but it is far away.",
       "effects": { "life": 16, "power": -6, "rad": -4 },
-      "science": "Water ice is hidden in very cold, dark craters near the Moon's south pole.",
-      "science_ur": "چاند کے جنوبی قطب کے تاریک گڑھوں میں برف چھپی ہے۔"
+      "science": "Water ice is hidden in very cold, dark craters near the Moon's south pole."
     },
     {
-      "id": "moxie", "emoji": "🫧", "levels": ["mars"],
-      "title": "Make oxygen from Mars air", "title_ur": "مریخ کی ہوا سے آکسیجن بنائیں",
-      "desc": "Turn carbon dioxide into oxygen.", "desc_ur": "کاربن ڈائی آکسائیڈ کو آکسیجن میں بدلیں۔",
+      "id": "moxie", "icon": "cloud", "levels": ["mars"],
+      "title": "Make oxygen from Mars air",
+      "desc": "Turn carbon dioxide into oxygen.",
       "effects": { "life": 15, "power": -10 },
-      "science": "NASA's MOXIE machine on the Perseverance rover made real oxygen from the thin Mars air.",
-      "science_ur": "ناسا کی موکسی مشین نے مریخ کی ہوا سے آکسیجن بنائی۔"
+      "science": "NASA's MOXIE machine on the Perseverance rover made real oxygen from the thin Mars air."
     },
     {
-      "id": "research", "emoji": "🔬", "levels": ["moon", "mars"],
-      "title": "Run a science experiment", "title_ur": "سائنسی تجربہ کریں",
-      "desc": "Learn new things for Earth.", "desc_ur": "زمین کے لیے نئی باتیں سیکھیں۔",
+      "id": "research", "icon": "microscope", "levels": ["moon", "mars"],
+      "title": "Run a science experiment",
+      "desc": "Learn new things for Earth.",
       "effects": { "score": 15, "life": -5 },
-      "science": "Astronauts on the ISS have done thousands of science experiments since 2000.",
-      "science_ur": "خلائی اسٹیشن پر ہزاروں سائنسی تجربے ہو چکے ہیں۔"
+      "science": "Astronauts on the ISS have done thousands of science experiments since 2000."
     },
     {
-      "id": "rover", "emoji": "🚙", "levels": ["moon", "mars"], "solar": true,
-      "title": "Send the rover to explore", "title_ur": "روور کو کھوج پر بھیجیں",
-      "desc": "Find cool rocks for science.", "desc_ur": "سائنس کے لیے دلچسپ پتھر ڈھونڈیں۔",
+      "id": "rover", "icon": "rover", "levels": ["moon", "mars"], "solar": true,
+      "title": "Send the rover to explore",
+      "desc": "Find cool rocks for science.",
       "effects": { "score": 12, "power": -7 },
-      "science": "NASA's Perseverance rover collects rock samples on Mars so scientists can study them.",
-      "science_ur": "ناسا کا پرسیویرنس روور مریخ پر پتھروں کے نمونے جمع کرتا ہے۔"
+      "science": "NASA's Perseverance rover collects rock samples on Mars so scientists can study them."
     },
     {
-      "id": "rest", "emoji": "😴", "levels": ["moon", "mars"],
-      "title": "Rest the crew", "title_ur": "عملے کو آرام دیں",
-      "desc": "Happy crew, but no work done.", "desc_ur": "عملہ خوش، مگر کوئی کام نہیں ہوا۔",
+      "id": "rest", "icon": "bed", "levels": ["moon", "mars"],
+      "title": "Rest the crew",
+      "desc": "Happy crew, but no work done.",
       "effects": { "morale": 18, "power": -2 },
-      "science": "ISS astronauts have about 8.5 hours for sleep in their daily plan.",
-      "science_ur": "خلائی اسٹیشن پر خلابازوں کو روزانہ تقریباً ساڑھے آٹھ گھنٹے سونے کا وقت ملتا ہے۔"
+      "science": "ISS astronauts have about 8.5 hours for sleep in their daily plan."
     },
     {
-      "id": "exercise", "emoji": "🏃", "levels": ["moon", "mars"],
-      "title": "Exercise time", "title_ur": "ورزش کا وقت",
-      "desc": "Strong bodies, but more food and air used.", "desc_ur": "مضبوط جسم، مگر کھانا اور ہوا زیادہ خرچ۔",
+      "id": "exercise", "icon": "activity", "levels": ["moon", "mars"],
+      "title": "Exercise time",
+      "desc": "Strong bodies, but more food and air used.",
       "effects": { "morale": 10, "life": -4, "score": 3 },
-      "science": "ISS astronauts exercise about 2 hours every day to keep their bones and muscles strong.",
-      "science_ur": "خلاباز ہڈیاں اور پٹھے مضبوط رکھنے کے لیے روزانہ تقریباً 2 گھنٹے ورزش کرتے ہیں۔"
+      "science": "ISS astronauts exercise about 2 hours every day to keep their bones and muscles strong."
     },
     {
-      "id": "call_earth", "emoji": "📡", "levels": ["moon"],
-      "title": "Call family on Earth", "title_ur": "زمین پر گھر والوں کو کال کریں",
-      "desc": "Big smiles, but the radio uses power.", "desc_ur": "بڑی مسکراہٹیں، مگر ریڈیو بجلی خرچ کرتا ہے۔",
+      "id": "call_earth", "icon": "phone", "levels": ["moon"],
+      "title": "Call family on Earth",
+      "desc": "Big smiles, but the radio uses power.",
       "effects": { "morale": 14, "power": -5 },
-      "science": "Radio signals take only about 1.3 seconds to travel from the Moon to Earth.",
-      "science_ur": "ریڈیو سگنل چاند سے زمین تک صرف تقریباً 1.3 سیکنڈ میں پہنچتے ہیں۔"
+      "science": "Radio signals take only about 1.3 seconds to travel from the Moon to Earth."
     },
     {
-      "id": "send_video", "emoji": "📼", "levels": ["mars"],
-      "title": "Record a video for Earth", "title_ur": "زمین کے لیے ویڈیو ریکارڈ کریں",
-      "desc": "Family will see it many minutes later.", "desc_ur": "گھر والے اسے کئی منٹ بعد دیکھیں گے۔",
+      "id": "send_video", "icon": "video", "levels": ["mars"],
+      "title": "Record a video for Earth",
+      "desc": "Family will see it many minutes later.",
       "effects": { "morale": 12, "power": -5 },
-      "science": "A message between Mars and Earth takes about 3 to 22 minutes one way, so live calls are impossible.",
-      "science_ur": "مریخ اور زمین کے درمیان پیغام ایک طرف 3 سے 22 منٹ لیتا ہے۔"
+      "science": "A message between Mars and Earth takes about 3 to 22 minutes one way, so live calls are impossible."
     },
     {
-      "id": "health_check", "emoji": "🩺", "levels": ["moon", "mars"],
-      "title": "Health check-up", "title_ur": "صحت کا معائنہ",
-      "desc": "Crew feels cared for, uses supplies.", "desc_ur": "عملہ اچھا محسوس کرتا ہے، سامان خرچ ہوتا ہے۔",
+      "id": "health_check", "icon": "stethoscope", "levels": ["moon", "mars"],
+      "title": "Health check-up",
+      "desc": "Crew feels cared for, uses supplies.",
       "effects": { "morale": 8, "score": 5, "life": -3 },
-      "science": "ISS astronauts do their own medical tests, like ultrasound scans, with help from doctors on Earth.",
-      "science_ur": "خلاباز زمین کے ڈاکٹروں کی مدد سے اپنے طبی ٹیسٹ خود کرتے ہیں۔"
+      "science": "ISS astronauts do their own medical tests, like ultrasound scans, with help from doctors on Earth."
     }
   ]
 }

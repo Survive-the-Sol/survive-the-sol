@@ -24,55 +24,48 @@ META_API = "https://osdr.nasa.gov/osdr/data/osd/meta/{num}"
 STUDY_PAGE = "https://osdr.nasa.gov/bio/repo/data/studies/OSD-{num}"
 OUTPUT_FILE = "data/facts.json"
 
+# "icon" is a name from js/icons.js (shown next to the fact in the game).
 FACTS = [
     {
-        "study": 895, "emoji": "🥒",
+        "study": 895, "icon": "leaf",
         "text": "In a test space greenhouse called EDEN ISS (in Antarctica!), scientists grew more than 268 kg of food in 2018 – mostly cucumbers, lettuce, leafy greens and tomatoes.",
-        "text_ur": "انٹارکٹیکا میں ایک آزمائشی خلائی گرین ہاؤس (ایڈن آئی ایس ایس) میں 2018 میں 268 کلو سے زیادہ خوراک اگائی گئی۔",
         "quote": "In total more than 268 kg of edible biomass was produced by the EDEN ISS greenhouse facility in 2018",
     },
     {
-        "study": 895, "emoji": "💡",
+        "study": 895, "icon": "lightbulb",
         "text": "The EDEN ISS greenhouse grew 26 different crops under LED lights that were on for 17 hours a day.",
-        "text_ur": "ایڈن آئی ایس ایس گرین ہاؤس میں ایل ای ڈی روشنی میں 26 قسم کی فصلیں اگائی گئیں، روزانہ 17 گھنٹے روشنی کے ساتھ۔",
         "quote": "During the first season 26 different crops were grown",
         "quote2": "the photoperiod was 17 h per day",
     },
     {
-        "study": 767, "emoji": "🍅",
+        "study": 767, "icon": "sprout",
         "text": "Tomato plants grown on the International Space Station grew lots of extra roots as they coped with life in space.",
-        "text_ur": "خلائی اسٹیشن پر اگنے والے ٹماٹر کے پودوں نے خلا میں رہنے کے لیے بہت سی اضافی جڑیں بنائیں۔",
         "quote": "spaceflight exhibited extensive adventitious roots formation",
     },
     {
-        "study": 766, "emoji": "🔴",
+        "study": 766, "icon": "sun",
         "text": "In the VEG-05 experiment, astronauts grew tomatoes on the ISS for 101 days, testing red-rich and blue-rich lights.",
-        "text_ur": "VEG-05 تجربے میں خلابازوں نے خلائی اسٹیشن پر 101 دن ٹماٹر اگائے اور سرخ اور نیلی روشنی آزمائی۔",
         "quote": "(101 days) to investigate tomato-growth responses and plant-microbiome differences due to two lighting recipes",
     },
     {
-        "study": 766, "emoji": "💧",
+        "study": 766, "icon": "droplet",
         "text": "When the space tomatoes did not get the right amount of water, they lost flowers and fruit. Space plants need careful watering – just like the plant in your base!",
-        "text_ur": "جب خلائی ٹماٹروں کو صحیح مقدار میں پانی نہ ملا تو ان کے پھول اور پھل گر گئے۔",
         "quote": "Water stress in plants led to flower and fruit loss",
     },
     {
-        "study": 412, "emoji": "🥬",
+        "study": 412, "icon": "leaf",
         "text": "Scientists checked red romaine lettuce, green lettuce and mizuna grown together in the ISS Veggie chamber. They were safe to eat!",
-        "text_ur": "سائنس دانوں نے خلائی اسٹیشن کے ویجی خانے میں اگنے والی سلاد اور میزونا کو جانچا۔ وہ کھانے کے لیے محفوظ تھیں!",
         "quote": "indicated the leafy greens were safe for consumption",
     },
     {
-        "study": 964, "emoji": "🛰️",
+        "study": 964, "icon": "rocket",
         "text": "BioSentinel was the first mission in 50 years to send living things beyond low Earth orbit to study radiation. Its tiny passengers were yeast cells!",
-        "text_ur": "بائیو سینٹینل 50 سال میں پہلا مشن تھا جس نے تابکاری کے مطالعے کے لیے زندہ خلیے زمین کے قریبی مدار سے آگے بھیجے۔ اس کے مسافر خمیر کے خلیے تھے!",
         "quote": "The BioSentinel mission will be the first biological payload to study the effects of radiation beyond low Earth orbit in 50 years",
         "quote2": "budding yeast cells will be used",
     },
     {
-        "study": 964, "emoji": "🧫",
+        "study": 964, "icon": "microscope",
         "text": "In BioSentinel tests, more space-like radiation made yeast cells grow less. That is why shielding astronauts is so important!",
-        "text_ur": "بائیو سینٹینل کے تجربات میں زیادہ تابکاری سے خمیر کے خلیے کم بڑھے۔ اسی لیے خلابازوں کی حفاظت بہت ضروری ہے!",
         "quote": "there is a dose-dependent decrease in yeast cell growth and metabolism in response to space-like radiation",
     },
 ]
@@ -104,9 +97,8 @@ def main():
                 raise SystemExit(f"Quote not found in OSD-{num}! Fix the fact, do not guess.\n  {q}")
         out.append({
             "id": f"OSD-{num}",
-            "emoji": fact["emoji"],
+            "icon": fact["icon"],
             "text": fact["text"],
-            "text_ur": fact["text_ur"],
             "evidence": " … ".join(q for q in (fact.get("quote"), fact.get("quote2")) if q),
             "study_title": title,
             "source": f"NASA OSDR, study OSD-{num}",
