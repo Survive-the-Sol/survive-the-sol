@@ -58,10 +58,13 @@ function resize() {
   lobbyCam.aspect = w / h; lobbyCam.updateProjectionMatrix();
   const mobile = w < 760;
   const s = mobile ? 1 : Math.min(2, Math.max(0.6, Math.min(w / 1280, h / 720)));
-  const hs = mobile ? Math.min(1, Math.max(0.62, w / 600)) : Math.min(1.7, Math.max(0.72, Math.min(w / 1280, h / 720)));
+  const hs = mobile ? 0.8 : Math.min(1.7, Math.max(0.72, Math.min(w / 1280, h / 720)));
   document.documentElement.style.setProperty('--s', s);
   document.documentElement.style.setProperty('--hs', hs);
   document.body.classList.toggle('mobile', mobile);
+  // phones: pull the lobby camera back so the astronaut stands below the menu panels
+  if (mobile) { lobbyCam.position.set(0, 2.4, 17); lobbyCam.lookAt(0, 3.7, 0); }
+  else { lobbyCam.position.set(0, 2.6, 10.5); lobbyCam.lookAt(0, 1.2, 0); }
 }
 
 // ---------------- game world scene ----------------
@@ -473,7 +476,7 @@ function updateDay(dt) {
 
   // ----- airdrops, meteors visuals -----
   for (const ev of airdrops.update(dt, D.t, { shelter: { x: 0, z: 0 }, r: 120 })) {
-    if (ev.type === 'incoming') { rovi.say('A supply pod is falling! Gold supplies inside!', { key: 'pod', cooldown: 30 }); audio.sfx('whoosh'); }
+    if (ev.type === 'incoming' && !D.active) { rovi.say('A supply pod is falling! Gold supplies inside!', { key: 'pod', cooldown: 30 }); audio.sfx('whoosh'); }
     if (ev.type === 'landed' && Math.hypot(ev.pod.x - player.pos.x, ev.pod.z - player.pos.z) < 40) { audio.sfx('impact'); rig.shake(0.25); }
   }
   hazards.update(dt, D.t, player);

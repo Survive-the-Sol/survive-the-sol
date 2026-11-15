@@ -332,7 +332,6 @@ body.danger-on .hud-tc, body.in-storm .hud-tc { display: none; }
 .tbtn { font: 800 13px var(--font-b); width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .3); background: rgba(11, 16, 38, .75); color: var(--text); touch-action: none; }
 .tbtn.big { grid-column: 1 / -1; justify-self: center; width: 80px; height: 80px; background: rgba(232, 242, 42, .9); color: #0b1026; }
 .tbtn.on { background: var(--yellow); color: #0b1026; }
-body.touch-on .hud-bl { bottom: calc(24px + 270px); }
 
 /* ===================== PHONES: stages flow as columns ===================== */
 body.mobile .screen { overflow-y: auto; }
@@ -348,7 +347,10 @@ body.mobile .s-lobby .stage { display: flex; flex-direction: column; gap: 14px; 
 body.mobile .l-top, body.mobile .l-missions, body.mobile .l-links, body.mobile .l-start { position: static; width: 100%; }
 body.mobile .l-top { flex-wrap: wrap; gap: 10px; }
 body.mobile .l-xpbar { width: 90px; }
-body.mobile .l-start { margin-top: auto; padding-top: 220px; }
+body.mobile .l-start { margin-top: auto; padding-top: 250px; }
+body.mobile .l-links { flex-direction: row; gap: 8px; }
+body.mobile .l-link { flex: 1; height: auto; min-height: 50px; padding: 8px; font-size: 13px; text-align: center; line-height: 1.25; }
+body.mobile .l-mission { padding: 12px 14px; }
 body.mobile .btn-yellow.huge { width: 100%; }
 body.mobile .s-cards .stage, body.mobile .s-night .stage { padding: 20px 16px 40px; }
 body.mobile .c-title, body.mobile .n-title { font-size: 26px; }
@@ -366,12 +368,31 @@ body.mobile .w-actions .btn-yellow, body.mobile .w-actions .btn-ghost, body.mobi
 body.mobile .lo-title { font-size: 36px; }
 body.mobile .i-body { overflow: visible; }
 body.mobile .p-card { width: calc(100% - 32px); }
-body.mobile .bars-panel { width: 210px; padding: 12px; gap: 9px; }
-body.mobile .hud-bl { width: min(330px, 70vw); }
-body.mobile .danger-banner { width: 92vw; transform: translateX(-50%); padding: 10px 14px; }
-body.mobile .db-title { font-size: 20px; } body.mobile .db-sub { font-size: 15px; }
-body.mobile .use-card { top: 150px; }
-body.mobile .hud-tc { top: calc(24px + 210px * var(--hs)); left: 24px; transform: scale(var(--hs)); transform-origin: top left; align-items: flex-start; }
+/* phone HUD: top band (bars | map + buttons), middle (danger), bottom (ROVI above a full-width hand) */
+body.mobile .hud-tl { left: 10px; top: 10px; }
+body.mobile .hud-tr { right: 10px; top: 10px; }
+body.mobile .hud-br { right: 10px; bottom: auto; top: calc(10px + 182px * var(--hs)); transform-origin: top right; }
+body.mobile .hud-tc { left: 10px; top: calc(10px + 150px * var(--hs)); transform: scale(var(--hs)); transform-origin: top left; align-items: flex-start; }
+body.mobile .danger-banner { top: calc(10px + 240px * var(--hs)); width: calc(100vw - 20px); transform: translateX(-50%); padding: 10px 14px; }
+body.mobile .db-title { font-size: 20px; } body.mobile .db-sub { font-size: 15px; } body.mobile .db-src { font-size: 12px; }
+body.mobile .use-card { top: calc(10px + 240px * var(--hs) + 140px); }
+body.mobile .hand { left: 8px; right: 8px; bottom: 8px; transform: none; gap: 6px; }
+body.mobile .hcard, body.mobile .hcard.danger { flex: 1; width: auto; min-width: 0; padding: 8px; border-radius: 12px; }
+body.mobile .hc-title, body.mobile .hcard.danger .hc-title { font-size: 13px; }
+body.mobile .hc-cost { font-size: 11px; }
+body.mobile .hud-bl { left: 8px; bottom: 96px; width: calc(100vw - 16px); transform: none; gap: 8px; }
+body.mobile .rovi-face { width: 44px; height: 44px; border-radius: 12px; }
+body.mobile .rovi-bubble { font-size: 14px; }
+body.mobile .prompt { bottom: 180px; font-size: 13px; }
+body.mobile.touch-on .joystick { bottom: 190px; }
+body.mobile.touch-on .touch-btns { bottom: 190px; }
+body.touch-on:not(.mobile) .hud-bl { bottom: calc(24px + 270px); }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after { animation: none !important; transition: none !important; }
+
+/* dark scrollbars to match the panels */
+* { scrollbar-width: thin; scrollbar-color: #3a4380 transparent; }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-thumb { background: #3a4380; border-radius: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
