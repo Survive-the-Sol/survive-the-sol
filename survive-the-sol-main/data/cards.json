@@ -1,0 +1,92 @@
+{
+  "_note": "Emergency cards for Survive the Sol. Each day the player picks 3 of 5 offered cards and can use each one once when a danger hits. dangerTypes = the dangers this card is RIGHT for (full effect). Used on another danger = half effect. effect.reduce = share of the danger's damage the card blocks. cost = what using the card costs (bars: power / life / rad, or a special cost). icon = SVG path (24x24 stroke icon). science = a real science line; source = where it comes from.",
+  "dangers": {
+    "solar_storm": { "label": "SOLAR STORM", "name": "solar storm" },
+    "meteor": { "label": "METEOR HIT", "name": "micrometeoroid shower" },
+    "power_failure": { "label": "POWER FAILURE", "name": "power failure" },
+    "dust_storm": { "label": "DUST STORM", "name": "Mars dust storm" }
+  },
+  "cards": [
+    {
+      "id": "radiation_shield", "title": "Radiation Shield", "levels": ["moon", "mars"],
+      "icon": "M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z",
+      "dangerTypes": ["solar_storm"],
+      "effect": { "reduce": 0.7, "text": "70% less radiation" },
+      "cost": { "power": 15, "text": "15 Power" },
+      "science": "Thick layers of Moon soil (regolith) can block a lot of radiation.",
+      "source": "NASA – space radiation and lunar regolith shielding research"
+    },
+    {
+      "id": "water_wall", "title": "Water Wall", "levels": ["moon", "mars"],
+      "icon": "M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z",
+      "dangerTypes": ["solar_storm"],
+      "effect": { "reduce": 0.5, "text": "50% less radiation" },
+      "cost": { "life": 10, "text": "10 Life Support" },
+      "science": "Water is very good at stopping radiation, so bases can keep water in the walls.",
+      "source": "NASA – space radiation shielding research"
+    },
+    {
+      "id": "storm_shelter", "title": "Storm Shelter", "levels": ["moon", "mars"],
+      "icon": "M3 11l9-7 9 7v9H3z M9 20v-6h6v6",
+      "dangerTypes": ["solar_storm"],
+      "effect": { "reduce": 1.0, "text": "Full protection" },
+      "cost": { "stuck": 20, "text": "Stuck inside 20s" },
+      "science": "During solar storms, ISS astronauts move to the most shielded parts of the station.",
+      "source": "NASA – International Space Station space weather procedures"
+    },
+    {
+      "id": "quick_repair", "title": "Quick Repair", "levels": ["moon", "mars"],
+      "icon": "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z",
+      "dangerTypes": ["meteor"],
+      "effect": { "reduce": 0.8, "text": "Fixes 80% of the damage" },
+      "cost": { "stamina": true, "text": "All stamina" },
+      "science": "Astronauts go on spacewalks to repair the outside of the ISS.",
+      "source": "NASA – International Space Station spacewalks"
+    },
+    {
+      "id": "duck_cover", "title": "Duck & Cover", "levels": ["moon", "mars"],
+      "icon": "M4 14a8 8 0 0 1 16 0z M12 14v6 M9 20h6",
+      "dangerTypes": ["meteor"],
+      "effect": { "reduce": 0.6, "text": "60% less damage" },
+      "cost": { "freeze": 6, "text": "Can't move for 6s" },
+      "science": "The ISS has layered shields to protect it from tiny space rocks called micrometeoroids.",
+      "source": "NASA – ISS micrometeoroid and orbital debris shielding"
+    },
+    {
+      "id": "battery_pack", "title": "Battery Pack", "levels": ["moon", "mars"],
+      "icon": "M7 4h10v17H7z M10 2h4 M12 9l-2 4h4l-2 4",
+      "dangerTypes": ["power_failure"],
+      "effect": { "reduce": 0.8, "text": "Keeps 80% of your Power" },
+      "cost": { "life": 6, "text": "6 Life Support" },
+      "science": "The ISS stores solar energy in batteries so it has power when it flies through Earth's shadow.",
+      "source": "NASA – International Space Station electrical power system"
+    },
+    {
+      "id": "power_save", "title": "Power Save", "levels": ["moon", "mars"],
+      "icon": "M9 18h6 M10 22h4 M15 14c.2-1 .7-1.7 1.5-2.5A4.6 4.6 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.8.8 1.3 1.5 1.5 2.5",
+      "dangerTypes": ["power_failure"],
+      "effect": { "reduce": 0.6, "text": "Keeps 60% of your Power" },
+      "cost": { "slow": 20, "text": "Slow walking 20s" },
+      "science": "Spacecraft switch off machines they do not need, so the power lasts longer.",
+      "source": "NASA – spacecraft power management"
+    },
+    {
+      "id": "oxygen_boost", "title": "Oxygen Boost", "levels": ["mars"],
+      "icon": "M4 12h10a3 3 0 1 0-3-3 M4 16h13a3 3 0 1 1-3 3 M4 8h4",
+      "dangerTypes": ["dust_storm"],
+      "effect": { "reduce": 0.6, "text": "Saves Life Support" },
+      "cost": { "power": 10, "text": "10 Power" },
+      "science": "The ISS makes fresh oxygen by splitting water with electricity.",
+      "source": "NASA – ISS Environmental Control and Life Support System"
+    },
+    {
+      "id": "clean_panels", "title": "Clean the Panels", "levels": ["mars"],
+      "icon": "M3 6h18v10H3z M3 11h18 M9 6v10 M15 6v10 M12 16v4",
+      "dangerTypes": ["dust_storm"],
+      "effect": { "reduce": 0.8, "text": "Saves your Power" },
+      "cost": { "rad": 6, "text": "6 Radiation Safety" },
+      "science": "The Mars rovers Spirit and Opportunity got extra power when wind blew dust off their solar panels.",
+      "source": "NASA – Mars Exploration Rovers (Spirit and Opportunity)"
+    }
+  ]
+}
