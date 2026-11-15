@@ -738,7 +738,7 @@ function win() {
   const title = M.level === 'mars' ? 'The Mars Times' : 'The Moon Times';
   const paper = {
     title, level: M.level, edition: M.level === 'mars' ? 'MARS BASE EDITION' : 'MOON BASE EDITION', day: M.total,
-    headline: `${displayName()} keeps the crew safe for ${M.total} days!`, suitColor: suitColor(),
+    headline: `${displayName()} keeps the crew safe for ${M.total} day${M.total === 1 ? '' : 's'}!`, suitColor: suitColor(),
     story: `The young commander used ${used.length ? listWords(used.slice(0, 3).map((u) => u.toLowerCase() + 's')) : 'smart choices'} to protect the crew from real solar storms recorded by NASA.${big ? ` The biggest was a class ${big.class} flare from ${big.date.replace(/^0/, '')}.` : ''} All ${M.total} days, the power stayed on and the crew stayed healthy. Storm data: NASA CCMC DONKI (archived NASA data).`,
   };
   audio.sfx('win');

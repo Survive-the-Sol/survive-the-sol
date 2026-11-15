@@ -69,7 +69,7 @@ export function drawNewspaper(cv, p) {
   ctx.font = `26px ${serif}`; ctx.fillStyle = ink;
   const colW = (W - 2 * M - 32) / 2, lh = 39;
   const all = lines(ctx, p.story, colW);
-  const perCol = Math.max(1, Math.floor((H - M - y) / lh));
+  const perCol = Math.min(Math.max(1, Math.floor((H - M - y) / lh)), Math.ceil(all.length / 2));   // split evenly into 2 columns
   all.slice(0, perCol).forEach((l, i) => ctx.fillText(l, M, y + i * lh));
   all.slice(perCol, perCol * 2).forEach((l, i) => ctx.fillText(l, M + colW + 32, y + i * lh));
 }
