@@ -421,6 +421,13 @@ function updateDay(dt) {
   if (G.inRover) driveRover(dt);
   else if (D.freezeT <= 0 && D.stuckT <= 0) {
     player.update(dt, rig);
+    // Push player out of rovers (dynamic colliders)
+    if (rovers && rovers.list) {
+      const roverColliders = rovers.list
+        .filter(r => !r.driven)
+        .map(r => ({ x: r.pos.x, z: r.pos.z, r: 2.2 }));
+      if (roverColliders.length > 0) pushOut(player.pos, roverColliders);
+    }
     if (player.events.includes('step')) fx.footprint(player.pos, player.facing);
     if (player.events.includes('land')) { fx.dust(player.pos, 10, 1.1); audio.sfx('land'); }
     if (player.events.includes('jump')) audio.sfx('jump');
@@ -464,7 +471,7 @@ function updateDay(dt) {
   // ----- shield bubble -----
   D.bubbleT = Math.max(0, D.bubbleT - dt);
   bubble.visible = D.bubbleT > 0;
-  if (bubble.visible) { bubble.position.copy(player.pos).add(new THREE.Vector3(0, 1, 0)); bubble.rotation.y += dt * 0.6; bubble.children[0].material.opacity = 0.18 + Math.sin(G.time * 4) * 0.05; }
+  if (bubble.visible) { bubble.position.copy(player.pos).add(new THREE.Vector3(0, 1, 0)); bubble.rotation.y += dt * 0.4; bubble.children[0].material.opacity = 0.22 + Math.sin(G.time * 1.5) * 0.05; }
 
   // ----- dust storm look (Mars) -----
   if (D.dustT > 0) {
@@ -553,7 +560,7 @@ function resolveDanger(d, card) {
     if (c.stamina) { player.stamina = 0; player.exhausted = true; }
     if (c.freeze) D.freezeT = c.freeze;
     if (c.slow) D.slowT = c.slow;
-    if (c.stuck) { D.stuckT = c.stuck; if (G.inRover) toggleRover(); player.placeAt(0, 16.5); }
+    if (c.stuck) { D.stuckT = 1.5; if (G.inRover) toggleRover(); player.placeAt(0, 20); }
     audio.sfx('use');
   }
   // the damage (right card = full block, wrong = half, none = full damage)

@@ -86,7 +86,8 @@ export function buildProps(scene, terrain, quality) {
     }
     const stripe = new THREE.Mesh(new THREE.TorusGeometry(R, 0.12, 4, 28, Math.PI * 2 * (segs - 2) / segs), flat('#4f7bff'));
     stripe.rotation.x = Math.PI / 2; stripe.rotation.z = -Math.PI / 2 + Math.PI * 2 / segs * 0; stripe.position.y = 2.4;
-    const roof = new THREE.Mesh(new THREE.SphereGeometry(R + 0.2, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2), flat('#b9c2d6'));
+    const roofMat = new THREE.MeshStandardMaterial({ color: '#b9c2d6', flatShading: true, roughness: 0.8, transparent: true, opacity: 1 });
+    const roof = new THREE.Mesh(new THREE.SphereGeometry(R + 0.2, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2), roofMat);
     roof.position.y = 3; roof.scale.y = 0.55; roof.castShadow = true;
     const floor = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.2, 14), flat('#5a6178'));
     floor.position.y = 0.1;
@@ -100,7 +101,7 @@ export function buildProps(scene, terrain, quality) {
     hut.add(stripe, roof, floor, table, screen, lamp);
     hut.rotation.y = facing;
     place(hut, x, z, 0.15);
-    roofs.push({ roof, x, z, r: R });
+    roofs.push({ roof, roofMat, x, z, r: R });
     landmarks.push({ name: 'Hut ' + 'ABCDEF'[i], type: 'hut', x, z });
     indoorSpots.push({ x, z }, { x: x + Math.sin(facing + 0.6) * 2, z: z + Math.cos(facing + 0.6) * 2 });
     const dx = Math.sin(facing), dz = Math.cos(facing);
@@ -263,6 +264,7 @@ export function buildProps(scene, terrain, quality) {
       rocks.setMatrixAt(placed, m);
       const g = 0.75 + rng() * 0.35; rocks.setColorAt(placed, color.setRGB(g, g, g * 1.04));
       if (big) colliders.push({ x, z, r: k * 0.9 });
+      else if (k >= 1.3) colliders.push({ x, z, r: k * 0.65 });
       placed++;
     }
     rocks.count = placed;
@@ -314,8 +316,12 @@ export function buildProps(scene, terrain, quality) {
     const on = Math.sin(t * 3) > 0;
     blinkers.forEach((b, i) => { b.visible = i === 0 ? on : Math.sin(t * 2 + i) > -0.3; });
     beam.material.opacity = 0.18 + Math.sin(t * 2.5) * 0.06;
-    // hide a hut's roof when you are inside, so the camera can see you
-    for (const r of roofs) r.roof.visible = Math.hypot(playerPos.x - r.x, playerPos.z - r.z) > r.r + 1.5;
+    // fade hut roof to glass-like when player is inside, back to opaque when outside
+    for (const r of roofs) {
+      const inside = Math.hypot(playerPos.x - r.x, playerPos.z - r.z) <= r.r + 1.5;
+      r.roofMat.opacity += (inside ? 0.18 - r.roofMat.opacity : 1 - r.roofMat.opacity) * 0.08;
+      r.roof.visible = true;
+    }
     for (const d of spinners) {
       d.a += d.speed * 0.016;
       const x = Math.cos(d.a) * d.r, z = Math.sin(d.a * 1.3) * d.r;

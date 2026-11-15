@@ -321,8 +321,14 @@ body.danger-on .hud-tc, body.in-storm .hud-tc { display: none; }
 @keyframes rise { from { opacity: 1; margin-top: 0; } to { opacity: 0; margin-top: -70px; } }
 
 .vignette { position: fixed; inset: 0; z-index: 5; pointer-events: none; opacity: 0; transition: opacity .3s; box-shadow: inset 0 0 160px 40px rgba(255, 60, 60, .55); }
-.dust-overlay { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; transition: opacity .6s; background: repeating-linear-gradient(105deg, rgba(194, 100, 40, .25) 0 70px, rgba(214, 130, 60, .35) 70px 140px); background-size: 300% 100%; animation: dust 7s linear infinite; }
-@keyframes dust { to { background-position: -700px 0; } }
+.dust-overlay { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; transition: opacity .6s;
+  background: radial-gradient(ellipse at 50% 50%, rgba(214,120,40,.45) 0%, rgba(180,90,30,.3) 45%, rgba(150,60,20,.12) 75%, transparent 100%);
+  animation: dustHaze 5s ease-in-out infinite alternate; }
+@keyframes dustHaze {
+  0%   { transform: scale(1) translateX(0px); }
+  50%  { transform: scale(1.05) translateX(-15px); }
+  100% { transform: scale(1.02) translateX(15px); }
+}
 
 /* phone controls */
 .touch { position: absolute; inset: 0; pointer-events: none; }
